@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:sizer/sizer.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_export.dart';
+import '../../core/services/shelter_service.dart';
+import '../../core/services/location_service.dart';
 import './widgets/communication_tools_widget.dart';
 import './widgets/emergency_action_card_widget.dart';
 import './widgets/emergency_contacts_widget.dart';
@@ -18,38 +22,100 @@ class EmergencyResponseScreen extends StatefulWidget {
 
 class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
   String currentThreatLevel = "HIGH";
-  String currentLocation = "Downtown District, Emergency Zone Alpha";
+  String currentLocation = "Getting location...";
   bool isSOSActive = false;
 
-  final List<Map<String, dynamic>> shelterData = [
-    {
-      "name": "Central Community Shelter",
-      "address": "123 Main Street, Downtown",
-      "capacity": 500,
-      "occupied": 342,
-      "distance": "0.8 miles",
-      "amenities": ["Medical", "Food", "Wi-Fi"],
-      "status": "Available"
-    },
-    {
-      "name": "Riverside Emergency Center",
-      "address": "456 River Road, Riverside",
-      "capacity": 300,
-      "occupied": 298,
-      "distance": "1.2 miles",
-      "amenities": ["Medical", "Food"],
-      "status": "Nearly Full"
-    },
-    {
-      "name": "North Side Relief Station",
-      "address": "789 North Avenue, North Side",
-      "capacity": 400,
-      "occupied": 156,
-      "distance": "2.1 miles",
-      "amenities": ["Food", "Supplies", "Pet Care"],
-      "status": "Available"
-    },
-  ];
+  // Real-time shelter service
+  final ShelterService _shelterService = ShelterService();
+  List<Map<String, dynamic>> shelterData = [];
+  bool _isLoadingShelters = false;
+  Position? _currentPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeLocationAndShelters();
+  }
+
+  Future<void> _initializeLocationAndShelters() async {
+    try {
+      // Get current location
+      _currentPosition = await LocationService.getCurrentPosition();
+      
+      if (_currentPosition != null) {
+        final locationName = await LocationService.getLocationName(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+        );
+        
+        setState(() {
+          currentLocation = locationName;
+        });
+        
+        // Load nearby shelters
+        await _loadNearbyShelters();
+      } else {
+        setState(() {
+          currentLocation = "Location unavailable";
+        });
+        _loadFallbackShelters();
+      }
+    } catch (e) {
+      print('Error initializing location: $e');
+      setState(() {
+        currentLocation = "Location error";
+      });
+      _loadFallbackShelters();
+    }
+  }
+
+  Future<void> _loadNearbyShelters() async {
+    if (_currentPosition == null) return;
+    
+    setState(() => _isLoadingShelters = true);
+    
+    try {
+      final shelters = await _shelterService.findNearbyShelters(
+        latitude: _currentPosition!.latitude,
+        longitude: _currentPosition!.longitude,
+        radiusM: 20000, // 20km radius
+      );
+      
+      setState(() {
+        shelterData = shelters;
+      });
+    } catch (e) {
+      print('Error loading shelters: $e');
+      _loadFallbackShelters();
+    } finally {
+      setState(() => _isLoadingShelters = false);
+    }
+  }
+
+  void _loadFallbackShelters() {
+    setState(() {
+      shelterData = [
+        {
+          "name": "Emergency Response Center",
+          "address": "Nearest available facility",
+          "capacity": 500,
+          "occupied": 120,
+          "distance": 1.2,
+          "amenities": ["Medical", "Food", "Wi-Fi"],
+          "status": "Available"
+        },
+        {
+          "name": "Community Safety Hub", 
+          "address": "Local community center",
+          "capacity": 300,
+          "occupied": 89,
+          "distance": 2.1,
+          "amenities": ["Food", "Supplies", "Communication"],
+          "status": "Available"
+        }
+      ];
+    });
+  }
 
   final List<Map<String, dynamic>> firstAidGuides = [
     {
@@ -178,9 +244,6 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
               // Communication Tools
               const CommunicationToolsWidget(),
 
-              // Emergency Contacts Widget
-              const EmergencyContactsWidget(),
-
               // SOS Emergency Button
               Container(
                 width: double.infinity,
@@ -296,93 +359,158 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                     size: 6.w,
                   ),
                   SizedBox(width: 3.w),
-                  Text(
-                    'Emergency Shelters',
-                    style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Emergency Shelters',
+                          style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          _isLoadingShelters 
+                            ? 'Finding nearby shelters...'
+                            : '${shelterData.length} shelters found',
+                          style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                            color: AppTheme.lightTheme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  if (_currentPosition != null)
+                    IconButton(
+                      onPressed: _isLoadingShelters ? null : () async {
+                        Navigator.pop(context);
+                        await _loadNearbyShelters();
+                        _showShelterOptions(context);
+                      },
+                      icon: _isLoadingShelters 
+                        ? SizedBox(
+                            width: 5.w,
+                            height: 5.w,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(Icons.refresh),
+                    ),
                 ],
               ),
             ),
             SizedBox(height: 2.h),
             Expanded(
-              child: ListView.builder(
-                padding: EdgeInsets.symmetric(horizontal: 4.w),
-                itemCount: shelterData.length,
-                itemBuilder: (context, index) {
-                  final shelter = shelterData[index];
-                  final occupancyRate = (shelter["occupied"] as int) /
-                      (shelter["capacity"] as int);
+              child: _isLoadingShelters 
+                ? Center(child: CircularProgressIndicator())
+                : shelterData.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CustomIconWidget(
+                            iconName: 'location_off',
+                            color: AppTheme.lightTheme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            size: 12.w,
+                          ),
+                          SizedBox(height: 2.h),
+                          Text(
+                            'No shelters found',
+                            style: AppTheme.lightTheme.textTheme.titleMedium,
+                          ),
+                          Text(
+                            'Enable location for better results',
+                            style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                              color: AppTheme.lightTheme.colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.symmetric(horizontal: 4.w),
+                      itemCount: shelterData.length,
+                      itemBuilder: (context, index) {
+                        final shelter = shelterData[index];
+                        final occupancyRate = (shelter["occupied"] as int) /
+                            (shelter["capacity"] as int);
+                        final distance = shelter["distance"];
+                        final distanceText = distance is double 
+                          ? '${distance.toStringAsFixed(1)} km'
+                          : distance.toString();
 
-                  return Container(
-                    margin: EdgeInsets.only(bottom: 2.h),
-                    padding: EdgeInsets.all(4.w),
-                    decoration: BoxDecoration(
-                      color: AppTheme.lightTheme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.outlineLight),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.shadowColor,
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                shelter["name"] as String,
-                                style: AppTheme.lightTheme.textTheme.titleMedium
-                                    ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                        return Container(
+                          margin: EdgeInsets.only(bottom: 2.h),
+                          padding: EdgeInsets.all(4.w),
+                          decoration: BoxDecoration(
+                            color: AppTheme.lightTheme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.outlineLight),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.shadowColor,
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
                               ),
-                            ),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 2.w, vertical: 0.5.h),
-                              decoration: BoxDecoration(
-                                color: occupancyRate > 0.9
-                                    ? AppTheme.primaryLight
-                                        .withValues(alpha: 0.1)
-                                    : AppTheme.successLight
-                                        .withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      shelter["name"] as String,
+                                      style: AppTheme.lightTheme.textTheme.titleMedium
+                                          ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  SizedBox(width: 2.w),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 2.w, vertical: 0.5.h),
+                                    decoration: BoxDecoration(
+                                      color: occupancyRate > 0.9
+                                          ? AppTheme.primaryLight
+                                              .withValues(alpha: 0.1)
+                                          : AppTheme.successLight
+                                              .withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      distanceText,
+                                      style: AppTheme.lightTheme.textTheme.bodySmall
+                                          ?.copyWith(
+                                        color: occupancyRate > 0.9
+                                            ? AppTheme.primaryLight
+                                            : AppTheme.successLight,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              child: Text(
-                                shelter["status"] as String,
-                                style: AppTheme.lightTheme.textTheme.bodySmall
-                                    ?.copyWith(
-                                  color: occupancyRate > 0.9
-                                      ? AppTheme.primaryLight
-                                      : AppTheme.successLight,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 1.h),
-                        Row(
-                          children: [
-                            CustomIconWidget(
-                              iconName: 'location_on',
-                              color: AppTheme.textMediumEmphasisLight,
-                              size: 4.w,
-                            ),
-                            SizedBox(width: 2.w),
-                            Expanded(
-                              child: Text(
-                                shelter["address"] as String,
-                                style: AppTheme.lightTheme.textTheme.bodyMedium,
-                              ),
-                            ),
+                              SizedBox(height: 1.h),
+                              Row(
+                                children: [
+                                  CustomIconWidget(
+                                    iconName: 'location_on',
+                                    color: AppTheme.textMediumEmphasisLight,
+                                    size: 4.w,
+                                  ),
+                                  SizedBox(width: 2.w),
+                                  Expanded(
+                                    child: Text(
+                                      shelter["address"] as String,
+                                      style: AppTheme.lightTheme.textTheme.bodyMedium,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                           ],
                         ),
                         SizedBox(height: 1.h),
@@ -395,7 +523,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                             ),
                             SizedBox(width: 2.w),
                             Text(
-                              shelter["distance"] as String,
+                              "${(shelter["distance"] as double).toStringAsFixed(1)} km",
                               style: AppTheme.lightTheme.textTheme.bodyMedium,
                             ),
                             const Spacer(),
@@ -748,27 +876,125 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
     );
   }
 
-  void _navigateToShelter(String shelterName) {
+  Future<void> _navigateToShelter(String shelterName) async {
     Navigator.pop(context);
-    Fluttertoast.showToast(
-      msg: "Opening navigation to $shelterName",
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      backgroundColor: AppTheme.successLight,
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
+    
+    try {
+      // Find the shelter data to get coordinates
+      final shelter = shelterData.firstWhere(
+        (s) => s['name'] == shelterName,
+        orElse: () => {},
+      );
+      
+      Uri mapUri;
+      
+      if (shelter.isNotEmpty && shelter['latitude'] != null && shelter['longitude'] != null) {
+        // Use coordinates for precise navigation
+        final lat = shelter['latitude'];
+        final lng = shelter['longitude'];
+        
+        // For mobile platforms, use the geo: scheme which works across platforms
+        mapUri = Uri.parse('geo:$lat,$lng?q=$lat,$lng(${Uri.encodeComponent(shelterName)})');
+        
+        // Fallback to Google Maps URL if geo scheme doesn't work
+        if (!await canLaunchUrl(mapUri)) {
+          mapUri = Uri.parse('https://maps.google.com/maps?q=$lat,$lng');
+        }
+      } else {
+        // Fallback: search by name using Google Maps
+        final encodedName = Uri.encodeComponent(shelterName);
+        mapUri = Uri.parse('https://maps.google.com/maps?q=$encodedName');
+      }
+      
+      if (await canLaunchUrl(mapUri)) {
+        await launchUrl(mapUri, mode: LaunchMode.externalApplication);
+        Fluttertoast.showToast(
+          msg: "Opening maps for $shelterName...",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: AppTheme.successLight,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+      } else {
+        throw 'Could not launch maps application';
+      }
+    } catch (e) {
+      print('Error opening maps: $e');
+      
+      // Alternative approach - provide manual instructions
+      if (shelterData.any((s) => s['name'] == shelterName)) {
+        final shelter = shelterData.firstWhere((s) => s['name'] == shelterName);
+        final lat = shelter['latitude'];
+        final lng = shelter['longitude'];
+        
+        if (lat != null && lng != null) {
+          Fluttertoast.showToast(
+            msg: "Maps app not available. Search coordinates: $lat, $lng in your maps app",
+            toastLength: Toast.LENGTH_LONG,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: AppTheme.primaryLight,
+            textColor: Colors.white,
+            fontSize: 14.0,
+          );
+        } else {
+          Fluttertoast.showToast(
+            msg: "Please search for '$shelterName' manually in your maps app",
+            toastLength: Toast.LENGTH_LONG,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: AppTheme.primaryLight,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+        }
+      }
+    }
   }
 
-  void _callShelter(String shelterName) {
-    Fluttertoast.showToast(
-      msg: "Calling $shelterName...",
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      backgroundColor: AppTheme.primaryLight,
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
+  Future<void> _callShelter(String shelterName) async {
+    try {
+      // Find the shelter data to get phone number
+      final shelter = shelterData.firstWhere(
+        (s) => s['name'] == shelterName,
+        orElse: () => {},
+      );
+      
+      String phoneNumber;
+      if (shelter.isNotEmpty && shelter['phone'] != null) {
+        phoneNumber = shelter['phone'];
+      } else {
+        // Fallback emergency numbers
+        phoneNumber = '911'; // Default emergency number
+      }
+      
+      // Clean the phone number (remove any spaces, dashes, etc.)
+      final cleanedNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+      final Uri phoneUri = Uri(scheme: 'tel', path: cleanedNumber);
+      
+      if (await canLaunchUrl(phoneUri)) {
+        await launchUrl(phoneUri);
+        Fluttertoast.showToast(
+          msg: "Calling $shelterName...",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: AppTheme.successLight,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+      } else {
+        throw 'Could not launch phone app';
+      }
+    } catch (e) {
+      print('Error making call: $e');
+      Fluttertoast.showToast(
+        msg: "Unable to call $shelterName. Please contact them manually.",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: AppTheme.primaryLight,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    }
   }
 
   void _toggleSOS() {

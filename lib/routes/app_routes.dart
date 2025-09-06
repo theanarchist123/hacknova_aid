@@ -5,6 +5,7 @@ import '../presentation/interactive_map_screen/interactive_map_screen.dart';
 import '../presentation/emergency_response_screen/emergency_response_screen.dart';
 import '../presentation/incident_reporting_screen/incident_reporting_screen.dart';
 import '../presentation/home_dashboard_screen/home_dashboard_screen.dart';
+import '../presentation/comprehensive_dashboard/comprehensive_dashboard_screen.dart';
 
 class AppRoutes {
   // TODO: Add your routes here
@@ -15,6 +16,7 @@ class AppRoutes {
   static const String emergencyResponse = '/emergency-response-screen';
   static const String incidentReporting = '/incident-reporting-screen';
   static const String homeDashboard = '/home-dashboard-screen';
+  static const String comprehensiveDashboard = '/comprehensive-dashboard-screen';
 
   static Map<String, WidgetBuilder> routes = {
     initial: (context) => const SplashScreen(),
@@ -24,6 +26,7 @@ class AppRoutes {
     emergencyResponse: (context) => const EmergencyResponseScreen(),
     incidentReporting: (context) => const IncidentReportingScreen(),
     homeDashboard: (context) => const HomeDashboardScreen(),
+    comprehensiveDashboard: (context) => const ComprehensiveDashboardScreen(),
     // TODO: Add your other routes here
   };
 }

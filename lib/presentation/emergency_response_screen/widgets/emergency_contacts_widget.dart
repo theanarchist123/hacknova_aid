@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:sizer/sizer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_export.dart';
 
@@ -191,14 +192,35 @@ class EmergencyContactsWidget extends StatelessWidget {
     );
   }
 
-  void _makeCall(String number) {
-    Fluttertoast.showToast(
-      msg: "Calling $number...",
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      backgroundColor: AppTheme.successLight,
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
+  Future<void> _makeCall(String number) async {
+    try {
+      // Clean the phone number (remove any spaces, dashes, etc.)
+      final cleanedNumber = number.replaceAll(RegExp(r'[^\d+]'), '');
+      final Uri phoneUri = Uri(scheme: 'tel', path: cleanedNumber);
+      
+      if (await canLaunchUrl(phoneUri)) {
+        await launchUrl(phoneUri);
+        Fluttertoast.showToast(
+          msg: "Calling $number...",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: AppTheme.successLight,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+      } else {
+        throw 'Could not launch phone app';
+      }
+    } catch (e) {
+      print('Error making call: $e');
+      Fluttertoast.showToast(
+        msg: "Unable to make call. Please dial $number manually.",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: AppTheme.primaryLight,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    }
   }
 }

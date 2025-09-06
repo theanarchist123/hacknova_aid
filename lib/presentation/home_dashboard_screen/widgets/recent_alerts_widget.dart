@@ -16,7 +16,7 @@ class RecentAlertsWidget extends StatefulWidget {
 }
 
 class _RecentAlertsWidgetState extends State<RecentAlertsWidget> {
-  final Set<int> _expandedCards = <int>{};
+  bool _isExpanded = false;
 
   IconData _getDisasterIcon(String type) {
     switch (type.toLowerCase()) {
@@ -95,195 +95,217 @@ class _RecentAlertsWidgetState extends State<RecentAlertsWidget> {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Recent Alerts',
-                style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+      decoration: BoxDecoration(
+        color: AppTheme.lightTheme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Dropdown Header
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            },
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
+            ),
+            child: Container(
+              padding: EdgeInsets.all(4.w),
+              child: Row(
+                children: [
+                  CustomIconWidget(
+                    iconName: 'notifications',
+                    color: AppTheme.lightTheme.colorScheme.primary,
+                    size: 6.w,
+                  ),
+                  SizedBox(width: 3.w),
+                  Expanded(
+                    child: Text(
+                      'Recent Alerts (${widget.alerts.length})',
+                      style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (widget.alerts.isNotEmpty)
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 2.w, vertical: 0.5.h),
+                      decoration: BoxDecoration(
+                        color: _getSeverityColor(widget.alerts.first['severity'] ?? 'medium'),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        widget.alerts.first['severity']?.toUpperCase() ?? 'ALERT',
+                        style: AppTheme.lightTheme.textTheme.labelSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  SizedBox(width: 2.w),
+                  AnimatedRotation(
+                    turns: _isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      color: AppTheme.lightTheme.colorScheme.onSurface,
+                      size: 6.w,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Expandable Content
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: _isExpanded
+                ? Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: AppTheme.lightTheme.colorScheme.outline.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.all(4.w),
+                      itemCount: widget.alerts.length > 3 ? 3 : widget.alerts.length,
+                      separatorBuilder: (context, index) => Divider(
+                        height: 3.h,
+                        color: AppTheme.lightTheme.colorScheme.outline.withValues(alpha: 0.1),
+                      ),
+                      itemBuilder: (context, index) {
+                        final alert = widget.alerts[index];
+                        
+                        return Container(
+                          padding: EdgeInsets.all(3.w),
+                          decoration: BoxDecoration(
+                            color: _getSeverityColor(alert['severity'] ?? 'medium').withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    _getDisasterIcon(alert['type'] ?? 'warning'),
+                                    color: _getSeverityColor(alert['severity'] ?? 'medium'),
+                                    size: 5.w,
+                                  ),
+                                  SizedBox(width: 2.w),
+                                  Expanded(
+                                    child: Text(
+                                      alert['title'] ?? 'Emergency Alert',
+                                      style: AppTheme.lightTheme.textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatTimeAgo(DateTime.parse(alert['timestamp'] ?? DateTime.now().toIso8601String())),
+                                    style: AppTheme.lightTheme.textTheme.labelSmall?.copyWith(
+                                      color: AppTheme.lightTheme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 1.h),
+                              Text(
+                                alert['message'] ?? 'No details available',
+                                style: AppTheme.lightTheme.textTheme.bodySmall?.copyWith(
+                                  color: AppTheme.lightTheme.colorScheme.onSurface.withValues(alpha: 0.8),
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (alert['affectedArea'] != null) ...[
+                                SizedBox(height: 1.h),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on,
+                                      size: 3.w,
+                                      color: AppTheme.lightTheme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                    ),
+                                    SizedBox(width: 1.w),
+                                    Text(
+                                      alert['affectedArea'],
+                                      style: AppTheme.lightTheme.textTheme.labelSmall?.copyWith(
+                                        color: AppTheme.lightTheme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          
+          // View All Button (only shown when expanded and there are more alerts)
+          if (_isExpanded && widget.alerts.length > 3)
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color: AppTheme.lightTheme.colorScheme.outline.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
                 ),
               ),
-              TextButton(
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/disaster-alerts-screen'),
+              child: TextButton(
+                onPressed: () => Navigator.pushNamed(context, '/disaster-alerts-screen'),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 2.h),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
+                    ),
+                  ),
+                ),
                 child: Text(
-                  'View All',
+                  'View All ${widget.alerts.length} Alerts',
                   style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
                     color: AppTheme.lightTheme.colorScheme.primary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 4.w),
-          itemCount: widget.alerts.length > 5 ? 5 : widget.alerts.length,
-          separatorBuilder: (context, index) => SizedBox(height: 2.h),
-          itemBuilder: (context, index) {
-            final alert = widget.alerts[index];
-            final isExpanded = _expandedCards.contains(index);
-
-            return Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: InkWell(
-                onTap: () {
-                  setState(() {
-                    if (isExpanded) {
-                      _expandedCards.remove(index);
-                    } else {
-                      _expandedCards.add(index);
-                    }
-                  });
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: EdgeInsets.all(4.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(2.w),
-                            decoration: BoxDecoration(
-                              color: _getSeverityColor(
-                                      alert['severity'] ?? 'medium')
-                                  .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: CustomIconWidget(
-                              iconName:
-                                  _getDisasterIcon(alert['type'] ?? 'warning')
-                                      .codePoint
-                                      .toString(),
-                              color: _getSeverityColor(
-                                  alert['severity'] ?? 'medium'),
-                              size: 6.w,
-                            ),
-                          ),
-                          SizedBox(width: 3.w),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  alert['title'] ?? 'Emergency Alert',
-                                  style: AppTheme
-                                      .lightTheme.textTheme.titleMedium
-                                      ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                SizedBox(height: 0.5.h),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 2.w, vertical: 0.5.h),
-                                      decoration: BoxDecoration(
-                                        color: _getSeverityColor(
-                                            alert['severity'] ?? 'medium'),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        (alert['severity'] ?? 'Medium')
-                                            .toUpperCase(),
-                                        style: AppTheme
-                                            .lightTheme.textTheme.labelSmall
-                                            ?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(width: 2.w),
-                                    Text(
-                                      _formatTimeAgo(DateTime.parse(
-                                          alert['timestamp'] ??
-                                              DateTime.now()
-                                                  .toIso8601String())),
-                                      style: AppTheme
-                                          .lightTheme.textTheme.bodySmall
-                                          ?.copyWith(
-                                        color: AppTheme
-                                            .lightTheme.colorScheme.onSurface
-                                            .withValues(alpha: 0.6),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          CustomIconWidget(
-                            iconName:
-                                isExpanded ? 'expand_less' : 'expand_more',
-                            color: AppTheme.lightTheme.colorScheme.onSurface
-                                .withValues(alpha: 0.6),
-                            size: 6.w,
-                          ),
-                        ],
-                      ),
-                      if (isExpanded) ...[
-                        SizedBox(height: 2.h),
-                        Text(
-                          alert['description'] ??
-                              'No additional details available.',
-                          style: AppTheme.lightTheme.textTheme.bodyMedium
-                              ?.copyWith(
-                            color: AppTheme.lightTheme.colorScheme.onSurface
-                                .withValues(alpha: 0.8),
-                          ),
-                        ),
-                        if (alert['location'] != null) ...[
-                          SizedBox(height: 1.h),
-                          Row(
-                            children: [
-                              CustomIconWidget(
-                                iconName: 'location_on',
-                                color: AppTheme.lightTheme.colorScheme.primary,
-                                size: 4.w,
-                              ),
-                              SizedBox(width: 1.w),
-                              Expanded(
-                                child: Text(
-                                  alert['location'],
-                                  style: AppTheme.lightTheme.textTheme.bodySmall
-                                      ?.copyWith(
-                                    color:
-                                        AppTheme.lightTheme.colorScheme.primary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+            ),
+        ],
+      ),
     );
   }
 }

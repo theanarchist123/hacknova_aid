@@ -48,5 +48,9 @@
         <key>NSAllowsArbitraryLoads</key>
         <true />
     </dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access to find nearby emergency shelters and disaster alerts.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs location access to provide emergency services and disaster alerts.</string>
 </dict>
 </plist>
