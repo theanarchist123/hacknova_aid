@@ -133,7 +133,7 @@ class AppTheme {
     ),
 
     // Card theme for information display
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: surfaceLight,
       elevation: 2.0,
       shadowColor: shadowColor,
@@ -319,7 +319,7 @@ class AppTheme {
     ),
 
     // Tab bar theme for emergency navigation
-    tabBarTheme: TabBarTheme(
+    tabBarTheme: TabBarThemeData(
       labelColor: primaryLight,
       unselectedLabelColor: textMediumEmphasisLight,
       indicatorColor: primaryLight,
@@ -421,7 +421,7 @@ class AppTheme {
     ),
 
     // Card theme for dark mode information display
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: surfaceDark,
       elevation: 2.0,
       shadowColor: shadowColor,
@@ -607,7 +607,7 @@ class AppTheme {
     ),
 
     // Tab bar theme for dark emergency navigation
-    tabBarTheme: TabBarTheme(
+    tabBarTheme: TabBarThemeData(
       labelColor: primaryDark,
       unselectedLabelColor: textMediumEmphasisDark,
       indicatorColor: primaryDark,

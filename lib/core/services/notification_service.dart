@@ -49,7 +49,7 @@ class NotificationService {
       
       // Check for new high-priority alerts
       for (var alert in alerts) {
-        final alertId = alert['id'] ?? alert['title'] ?? '';
+        final alertId = (alert['id']?.toString() ?? alert['title']?.toString() ?? '');
         if (!_lastAlertIds.contains(alertId)) {
           _lastAlertIds.add(alertId);
           

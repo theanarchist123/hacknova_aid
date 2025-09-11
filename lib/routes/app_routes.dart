@@ -24,7 +24,14 @@ class AppRoutes {
     disasterAlerts: (context) => const DisasterAlertsScreen(),
     interactiveMap: (context) => const InteractiveMapScreen(),
     emergencyResponse: (context) => const EmergencyResponseScreen(),
-    incidentReporting: (context) => const IncidentReportingScreen(),
+    incidentReporting: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      return IncidentReportingScreen(
+        initialLocation: args?['location'] as String?,
+        initialLatitude: args?['latitude'] as double?,
+        initialLongitude: args?['longitude'] as double?,
+      );
+    },
     homeDashboard: (context) => const HomeDashboardScreen(),
     comprehensiveDashboard: (context) => const ComprehensiveDashboardScreen(),
     // TODO: Add your other routes here

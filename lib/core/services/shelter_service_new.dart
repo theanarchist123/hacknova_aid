@@ -150,10 +150,6 @@ class ShelterService {
             location['lng'].toDouble()
           );
           
-          final capacity = _estimateCapacityFromGoogle(type);
-          final occupancyPercentage = _generateRealisticOccupancy();
-          final occupied = ((capacity * occupancyPercentage) / 100).round();
-          
           return {
             'id': place['place_id'],
             'name': place['name'],
@@ -163,9 +159,8 @@ class ShelterService {
             'longitude': location['lng'].toDouble(),
             'distance': distance,
             'distanceKm': (distance / 1000).toStringAsFixed(1),
-            'capacity': capacity,
-            'occupied': occupied,
-            'occupancy': occupancyPercentage,
+            'capacity': _estimateCapacityFromGoogle(type),
+            'occupancy': _generateRealisticOccupancy(),
             'contact': {'phone': 'Contact facility directly'},
             'amenities': _getAmenitiesForType(type),
             'accessibility': _getDefaultAccessibility(),
@@ -350,7 +345,6 @@ class ShelterService {
         'distance': 2200.0,
         'distanceKm': '2.2',
         'capacity': 250,
-        'occupied': 113, // 45% of 250
         'occupancy': 45,
         'contact': {
           'phone': '+91-22-24136051',
@@ -372,7 +366,6 @@ class ShelterService {
         'distance': 1800.0,
         'distanceKm': '1.8',
         'capacity': 180,
-        'occupied': 63, // 35% of 180
         'occupancy': 35,
         'contact': {
           'phone': 'Contact BMC Emergency Services',
@@ -394,7 +387,6 @@ class ShelterService {
         'distance': 1200.0,
         'distanceKm': '1.2',
         'capacity': 120,
-        'occupied': 30, // 25% of 120
         'occupancy': 25,
         'contact': {
           'phone': 'Contact local ward office',

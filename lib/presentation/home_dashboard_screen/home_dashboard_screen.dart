@@ -74,28 +74,36 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
           _currentPosition!.longitude,
         );
         
-        setState(() {});
+        if (mounted) {
+          setState(() {});
+        }
         
         // Load real-time alerts
         await _loadRealTimeAlerts();
       } else {
-        setState(() {
-          _currentLocationName = "Location unavailable";
-        });
+        if (mounted) {
+          setState(() {
+            _currentLocationName = "Location unavailable";
+          });
+        }
         // Load alerts without location
         await _loadRealTimeAlerts();
       }
     } catch (e) {
       print('Error initializing location: $e');
-      setState(() {
-        _currentLocationName = "Location error";
-      });
+      if (mounted) {
+        setState(() {
+          _currentLocationName = "Location error";
+        });
+      }
       await _loadRealTimeAlerts();
     }
   }
 
   Future<void> _loadRealTimeAlerts() async {
-    setState(() => _isLoadingAlerts = true);
+    if (mounted) {
+      setState(() => _isLoadingAlerts = true);
+    }
     
     try {
       final alerts = await _alertsService.fetchDisasterAlerts(
@@ -104,20 +112,26 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
         radiusKm: 50,
       );
       
-      setState(() {
-        _recentAlerts = alerts.take(5).toList(); // Show only recent 5 alerts
-        _hasActiveAlert = alerts.any((alert) => 
-          alert['severity'] == 'critical' || alert['severity'] == 'high');
-      });
+      if (mounted) {
+        setState(() {
+          _recentAlerts = alerts.take(5).toList(); // Show only recent 5 alerts
+          _hasActiveAlert = alerts.any((alert) => 
+            alert['severity'] == 'critical' || alert['severity'] == 'high');
+        });
+      }
     } catch (e) {
       print('Error loading alerts: $e');
       // Keep existing mock data as fallback
-      setState(() {
-        _recentAlerts = _getFallbackAlerts();
-        _hasActiveAlert = true;
-      });
+      if (mounted) {
+        setState(() {
+          _recentAlerts = _getFallbackAlerts();
+          _hasActiveAlert = true;
+        });
+      }
     } finally {
-      setState(() => _isLoadingAlerts = false);
+      if (mounted) {
+        setState(() => _isLoadingAlerts = false);
+      }
     }
   }
 
@@ -163,12 +177,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   }
 
   Future<void> _handleRefresh() async {
-    setState(() => _isRefreshing = true);
+    if (mounted) {
+      setState(() => _isRefreshing = true);
+    }
 
     // Refresh location and alerts
     await _initializeLocation();
 
-    setState(() => _isRefreshing = false);
+    if (mounted) {
+      setState(() => _isRefreshing = false);
+    }
     
     // Refresh completed silently - no bottom popup needed
   }
@@ -190,7 +208,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   }
 
   void _onBottomNavTap(int index) {
-    setState(() => _selectedBottomNavIndex = index);
+    if (mounted) {
+      setState(() => _selectedBottomNavIndex = index);
+    }
 
     switch (index) {
       case 0:

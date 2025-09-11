@@ -1,12 +1,16 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/app_export.dart';
+import '../../core/services/shelter_service.dart';
+import '../../core/services/google_services.dart';
 import './widgets/disaster_alert_marker_sheet.dart';
 import './widgets/emergency_mode_banner.dart';
 import './widgets/map_filter_bottom_sheet.dart';
@@ -39,6 +43,12 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
     'disaster_zones': true,
     'safe_zones': false,
   };
+
+  // Real-time data lists
+  List<Map<String, dynamic>> _realShelters = [];
+  List<Map<String, dynamic>> _realHospitals = [];
+  List<Map<String, dynamic>> _realFoodCenters = [];
+  bool _isLoadingMarkers = false;
 
   // Mock data
   final List<Map<String, dynamic>> _disasterAlerts = [
@@ -109,43 +119,104 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
     },
   ];
 
-  final List<Map<String, dynamic>> _hospitals = [
-    {
-      'id': 1,
-      'name': 'City General Hospital',
-      'type': 'hospital',
-      'latitude': 28.6400,
-      'longitude': 77.2000,
-      'emergency': true,
-      'beds_available': 45,
-    },
-    {
-      'id': 2,
-      'name': 'Emergency Medical Center',
-      'type': 'hospital',
-      'latitude': 28.5900,
-      'longitude': 77.2300,
-      'emergency': true,
-      'beds_available': 12,
-    },
-  ];
-
-  final List<Map<String, dynamic>> _foodCenters = [
-    {
-      'id': 1,
-      'name': 'Relief Food Distribution',
-      'type': 'food_center',
-      'latitude': 28.6100,
-      'longitude': 77.2200,
-      'operating_hours': '6:00 AM - 10:00 PM',
-      'supplies': ['Rice', 'Water', 'Medicine'],
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
+    _loadRealTimeMarkers();
+  }
+  
+  Future<void> _loadRealTimeMarkers() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingMarkers = true;
+      });
+    }
+    
+    try {
+      // Load real shelters
+      final shelterService = ShelterService();
+      _realShelters = await shelterService.findNearbyShelters(
+        latitude: _currentLocation.latitude,
+        longitude: _currentLocation.longitude,
+        radiusM: 15000,
+      );
+      
+      // Load real hospitals using Google Services
+      _realHospitals = await GoogleServices.searchPlaces(
+        latitude: _currentLocation.latitude,
+        longitude: _currentLocation.longitude,
+        type: 'hospital',
+        radius: 15000,
+      );
+      
+      // Load real food centers and relief points
+      final foodCenterResults = await GoogleServices.searchPlaces(
+        latitude: _currentLocation.latitude,
+        longitude: _currentLocation.longitude,
+        type: 'food',
+        radius: 10000,
+      );
+      
+      final reliefCenterResults = await _searchReliefCenters();
+      
+      _realFoodCenters = [...foodCenterResults, ...reliefCenterResults];
+      
+      if (mounted) {
+        setState(() {
+          _isLoadingMarkers = false;
+        });
+      }
+      
+      print('Loaded ${_realShelters.length} shelters, ${_realHospitals.length} hospitals, ${_realFoodCenters.length} food centers');
+      
+    } catch (e) {
+      print('Error loading real-time markers: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingMarkers = false;
+        });
+      }
+    }
+  }
+  
+  Future<List<Map<String, dynamic>>> _searchReliefCenters() async {
+    try {
+      const String apiKey = 'AIzaSyAxASAVnfdE_c9Axulg_dG0TBcTWGaN79I';
+      final keywords = ['food bank', 'relief center', 'food distribution', 'humanitarian aid'];
+      List<Map<String, dynamic>> allResults = [];
+      
+      for (final keyword in keywords) {
+        final encodedKeyword = Uri.encodeComponent(keyword);
+        final url = Uri.parse(
+          'https://maps.googleapis.com/maps/api/place/textsearch/json?query=$encodedKeyword+near+${_currentLocation.latitude},${_currentLocation.longitude}&radius=10000&key=$apiKey'
+        );
+        
+        final response = await http.get(url);
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['results'] != null) {
+            for (final result in data['results']) {
+              final location = result['geometry']['location'];
+              allResults.add({
+                'place_id': result['place_id'],
+                'name': result['name'],
+                'address': result['formatted_address'] ?? 'Address not available',
+                'latitude': location['lat'],
+                'longitude': location['lng'],
+                'rating': result['rating']?.toDouble() ?? 0.0,
+                'type': 'food_center',
+              });
+            }
+          }
+        }
+      }
+      
+      return allResults;
+    } catch (e) {
+      print('Error searching relief centers: $e');
+      return [];
+    }
   }
 
   @override
@@ -192,6 +263,24 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
     _showCustomPinDialog(point);
   }
 
+  Future<String> _getLocationName(LatLng point) async {
+    try {
+      const String apiKey = 'AIzaSyAxASAVnfdE_c9Axulg_dG0TBcTWGaN79I';
+      final url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=${point.latitude},${point.longitude}&key=$apiKey';
+      
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['results'] != null && data['results'].isNotEmpty) {
+          return data['results'][0]['formatted_address'];
+        }
+      }
+    } catch (e) {
+      print('Error getting location name: $e');
+    }
+    return 'Latitude: ${point.latitude.toStringAsFixed(6)}, Longitude: ${point.longitude.toStringAsFixed(6)}';
+  }
+
   void _showCustomPinDialog(LatLng point) {
     showDialog(
       context: context,
@@ -200,8 +289,28 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Latitude: ${point.latitude.toStringAsFixed(6)}'),
-            Text('Longitude: ${point.longitude.toStringAsFixed(6)}'),
+            FutureBuilder<String>(
+              future: _getLocationName(point),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 8),
+                      Text('Getting location...'),
+                    ],
+                  );
+                }
+                return Text(
+                  snapshot.data ?? 'Location unavailable',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                );
+              },
+            ),
             const SizedBox(height: 16),
             const Text(
                 'Would you like to report an incident at this location?'),
@@ -213,9 +322,18 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              Navigator.pushNamed(context, '/incident-reporting-screen');
+              final locationName = await _getLocationName(point);
+              Navigator.pushNamed(
+                context, 
+                '/incident-reporting-screen',
+                arguments: {
+                  'location': locationName,
+                  'latitude': point.latitude,
+                  'longitude': point.longitude,
+                },
+              );
             },
             child: const Text('Report Incident'),
           ),
@@ -235,6 +353,8 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
           setState(() {
             _filterStates = newFilters;
           });
+          // Reload markers when filters change to show real data
+          _loadRealTimeMarkers();
         },
       ),
     );
@@ -380,30 +500,33 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
 
     // Shelter markers
     if (_filterStates['shelters'] == true) {
-      for (final shelter in _shelters) {
+      for (final shelter in _realShelters) {
         markers.add(
           Marker(
             point: LatLng(
                 shelter['latitude'] as double, shelter['longitude'] as double),
             width: 40,
             height: 40,
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppTheme.lightTheme.colorScheme.primary,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.shadowColor,
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: CustomIconWidget(
-                iconName: 'local_hotel',
-                color: Colors.white,
-                size: 20,
+            child: GestureDetector(
+              onTap: () => _showShelterDetails(shelter),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.lightTheme.colorScheme.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.shadowColor,
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: CustomIconWidget(
+                  iconName: 'local_hotel',
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -413,30 +536,33 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
 
     // Hospital markers
     if (_filterStates['hospitals'] == true) {
-      for (final hospital in _hospitals) {
+      for (final hospital in _realHospitals) {
         markers.add(
           Marker(
             point: LatLng(hospital['latitude'] as double,
                 hospital['longitude'] as double),
             width: 40,
             height: 40,
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFE53935),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.shadowColor,
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: CustomIconWidget(
-                iconName: 'local_hospital',
-                color: Colors.white,
-                size: 20,
+            child: GestureDetector(
+              onTap: () => _showHospitalDetails(hospital),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE53935),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.shadowColor,
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: CustomIconWidget(
+                  iconName: 'local_hospital',
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -446,30 +572,33 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
 
     // Food center markers
     if (_filterStates['food_centers'] == true) {
-      for (final foodCenter in _foodCenters) {
+      for (final foodCenter in _realFoodCenters) {
         markers.add(
           Marker(
             point: LatLng(foodCenter['latitude'] as double,
                 foodCenter['longitude'] as double),
             width: 40,
             height: 40,
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF43A047),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.shadowColor,
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: CustomIconWidget(
-                iconName: 'restaurant',
-                color: Colors.white,
-                size: 20,
+            child: GestureDetector(
+              onTap: () => _showFoodCenterDetails(foodCenter),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF43A047),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.shadowColor,
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: CustomIconWidget(
+                  iconName: 'restaurant',
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -684,6 +813,102 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showShelterDetails(Map<String, dynamic> shelter) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              shelter['name'] ?? 'Emergency Shelter',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(shelter['address'] ?? 'Address not available'),
+            const SizedBox(height: 16),
+            Text('Type: ${shelter['type']}'),
+            Text('Capacity: ${shelter['capacity'] ?? 'Unknown'}'),
+            Text('Current Occupancy: ${shelter['occupied'] ?? 0}'),
+            Text('Status: ${shelter['status'] ?? 'Unknown'}'),
+            const SizedBox(height: 16),
+            if (shelter['amenities'] != null)
+              Text('Amenities: ${(shelter['amenities'] as List).join(', ')}'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showHospitalDetails(Map<String, dynamic> hospital) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              hospital['name'] ?? 'Medical Facility',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(hospital['address'] ?? 'Address not available'),
+            const SizedBox(height: 16),
+            Text('Rating: ${hospital['rating'] ?? 'Not rated'}/5'),
+            if (hospital['opening_hours'] != null)
+              Text('Hours: ${hospital['opening_hours']}'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFoodCenterDetails(Map<String, dynamic> foodCenter) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              foodCenter['name'] ?? 'Food Distribution Center',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(foodCenter['address'] ?? 'Address not available'),
+            const SizedBox(height: 16),
+            Text('Rating: ${foodCenter['rating'] ?? 'Not rated'}/5'),
+            Text('Type: Food Distribution / Relief Center'),
           ],
         ),
       ),

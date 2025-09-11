@@ -13,7 +13,7 @@ import './widgets/emergency_contacts_widget.dart';
 import './widgets/emergency_status_widget.dart';
 
 class EmergencyResponseScreen extends StatefulWidget {
-  const EmergencyResponseScreen({Key? key}) : super(key: key);
+  const EmergencyResponseScreen({super.key});
 
   @override
   State<EmergencyResponseScreen> createState() =>
@@ -37,6 +37,12 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
     _initializeLocationAndShelters();
   }
 
+  @override
+  void dispose() {
+    // No need to cancel anything specific here since we'll check mounted state
+    super.dispose();
+  }
+
   Future<void> _initializeLocationAndShelters() async {
     try {
       // Get current location
@@ -48,23 +54,29 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
           _currentPosition!.longitude,
         );
         
-        setState(() {
-          currentLocation = locationName;
-        });
+        if (mounted) {
+          setState(() {
+            currentLocation = locationName;
+          });
+        }
         
         // Load nearby shelters
         await _loadNearbyShelters();
       } else {
-        setState(() {
-          currentLocation = "Location unavailable";
-        });
+        if (mounted) {
+          setState(() {
+            currentLocation = "Location unavailable";
+          });
+        }
         _loadFallbackShelters();
       }
     } catch (e) {
       print('Error initializing location: $e');
-      setState(() {
-        currentLocation = "Location error";
-      });
+      if (mounted) {
+        setState(() {
+          currentLocation = "Location error";
+        });
+      }
       _loadFallbackShelters();
     }
   }
@@ -72,35 +84,50 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
   Future<void> _loadNearbyShelters() async {
     if (_currentPosition == null) return;
     
-    setState(() => _isLoadingShelters = true);
+    if (mounted) {
+      setState(() => _isLoadingShelters = true);
+    }
     
     try {
+      print('🔍 Searching for shelters near: ${_currentPosition!.latitude}, ${_currentPosition!.longitude}');
       final shelters = await _shelterService.findNearbyShelters(
         latitude: _currentPosition!.latitude,
         longitude: _currentPosition!.longitude,
         radiusM: 20000, // 20km radius
       );
       
-      setState(() {
-        shelterData = shelters;
-      });
+      print('✅ Found ${shelters.length} shelters');
+      if (shelters.isNotEmpty) {
+        print('First shelter: ${shelters.first}');
+      }
+      
+      if (mounted) {
+        setState(() {
+          shelterData = shelters;
+        });
+      }
     } catch (e) {
       print('Error loading shelters: $e');
       _loadFallbackShelters();
     } finally {
-      setState(() => _isLoadingShelters = false);
+      if (mounted) {
+        setState(() => _isLoadingShelters = false);
+      }
     }
   }
 
   void _loadFallbackShelters() {
-    setState(() {
+    print('📍 Loading fallback shelters');
+    if (mounted) {
+      setState(() {
       shelterData = [
         {
           "name": "Emergency Response Center",
           "address": "Nearest available facility",
           "capacity": 500,
           "occupied": 120,
-          "distance": 1.2,
+          "distance": 1200.0,
+          "distanceKm": "1.2",
           "amenities": ["Medical", "Food", "Wi-Fi"],
           "status": "Available"
         },
@@ -109,12 +136,15 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
           "address": "Local community center",
           "capacity": 300,
           "occupied": 89,
-          "distance": 2.1,
+          "distance": 2100.0,
+          "distanceKm": "2.1",
           "amenities": ["Food", "Supplies", "Communication"],
           "status": "Available"
         }
       ];
+      print('✅ Loaded ${shelterData.length} fallback shelters');
     });
+    }
   }
 
   final List<Map<String, dynamic>> firstAidGuides = [
@@ -431,12 +461,29 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                       itemCount: shelterData.length,
                       itemBuilder: (context, index) {
                         final shelter = shelterData[index];
-                        final occupancyRate = (shelter["occupied"] as int) /
-                            (shelter["capacity"] as int);
+                        
+                        // Safely handle capacity and occupied values
+                        final capacity = shelter["capacity"] is int 
+                          ? shelter["capacity"] as int 
+                          : int.tryParse(shelter["capacity"].toString()) ?? 100;
+                        final occupied = shelter["occupied"] is int 
+                          ? shelter["occupied"] as int 
+                          : int.tryParse(shelter["occupied"].toString()) ?? 0;
+                        
+                        final occupancyRate = occupied / capacity;
+                        
+                        // Safely handle distance
                         final distance = shelter["distance"];
-                        final distanceText = distance is double 
-                          ? '${distance.toStringAsFixed(1)} km'
-                          : distance.toString();
+                        String distanceText;
+                        if (distance is double) {
+                          distanceText = '${(distance / 1000).toStringAsFixed(1)} km';
+                        } else if (distance is int) {
+                          distanceText = '${(distance / 1000).toStringAsFixed(1)} km';
+                        } else if (shelter["distanceKm"] != null) {
+                          distanceText = '${shelter["distanceKm"]} km';
+                        } else {
+                          distanceText = distance.toString();
+                        }
 
                         return Container(
                           margin: EdgeInsets.only(bottom: 2.h),
@@ -523,12 +570,12 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                             ),
                             SizedBox(width: 2.w),
                             Text(
-                              "${(shelter["distance"] as double).toStringAsFixed(1)} km",
+                              distanceText,
                               style: AppTheme.lightTheme.textTheme.bodyMedium,
                             ),
                             const Spacer(),
                             Text(
-                              '${shelter["occupied"]}/${shelter["capacity"]} occupied',
+                              '$occupied/$capacity occupied',
                               style: AppTheme.lightTheme.textTheme.bodyMedium
                                   ?.copyWith(
                                 fontWeight: FontWeight.w600,
@@ -735,7 +782,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                                     ],
                                   ),
                                 );
-                              }).toList(),
+                              }),
                             ],
                           ),
                         ),
@@ -880,36 +927,71 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
     Navigator.pop(context);
     
     try {
-      // Find the shelter data to get coordinates
+      // Find the shelter data to get coordinates and address
       final shelter = shelterData.firstWhere(
         (s) => s['name'] == shelterName,
         orElse: () => {},
       );
       
-      Uri mapUri;
+      bool navigationSuccessful = false;
+      String searchQuery = shelterName;
       
-      if (shelter.isNotEmpty && shelter['latitude'] != null && shelter['longitude'] != null) {
-        // Use coordinates for precise navigation
-        final lat = shelter['latitude'];
-        final lng = shelter['longitude'];
-        
-        // For mobile platforms, use the geo: scheme which works across platforms
-        mapUri = Uri.parse('geo:$lat,$lng?q=$lat,$lng(${Uri.encodeComponent(shelterName)})');
-        
-        // Fallback to Google Maps URL if geo scheme doesn't work
-        if (!await canLaunchUrl(mapUri)) {
-          mapUri = Uri.parse('https://maps.google.com/maps?q=$lat,$lng');
-        }
-      } else {
-        // Fallback: search by name using Google Maps
-        final encodedName = Uri.encodeComponent(shelterName);
-        mapUri = Uri.parse('https://maps.google.com/maps?q=$encodedName');
+      // If we have address information, use it for better search results
+      if (shelter.isNotEmpty && shelter['address'] != null) {
+        searchQuery = '${shelter['name']}, ${shelter['address']}';
       }
       
-      if (await canLaunchUrl(mapUri)) {
-        await launchUrl(mapUri, mode: LaunchMode.externalApplication);
+      // Encode the full shelter name and address for search
+      final encodedQuery = Uri.encodeComponent(searchQuery);
+      
+      // Try multiple navigation schemes in order of preference
+      List<String> navigationUrls = [
+        // Google Maps app with name-based search (Android/iOS)
+        'comgooglemaps://?q=$encodedQuery',
+        'googlemaps://maps.google.com/?q=$encodedQuery',
+        // Apple Maps with name search (iOS)
+        'maps://maps.apple.com/?q=$encodedQuery',
+        // Waze with name search
+        'waze://?q=$encodedQuery',
+      ];
+      
+      // If we have coordinates, add them as fallback options
+      if (shelter.isNotEmpty && shelter['latitude'] != null && shelter['longitude'] != null) {
+        final lat = shelter['latitude'];
+        final lng = shelter['longitude'];
+        navigationUrls.addAll([
+          // Generic geo scheme with name as label
+          'geo:$lat,$lng?q=$lat,$lng($encodedQuery)',
+          // Coordinate-based fallbacks
+          'comgooglemaps://?q=$lat,$lng',
+          'googlemaps://maps.google.com/?q=$lat,$lng',
+          'maps://maps.apple.com/?q=$lat,$lng',
+        ]);
+      }
+      
+      // Add web fallbacks
+      navigationUrls.addAll([
+        'https://maps.google.com/?q=$encodedQuery',
+        'https://maps.google.com/maps?q=$encodedQuery',
+      ]);
+      
+      for (String url in navigationUrls) {
+        try {
+          final Uri uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+            navigationSuccessful = true;
+            break;
+          }
+        } catch (e) {
+          print('Failed to launch $url: $e');
+          continue;
+        }
+      }
+      
+      if (navigationSuccessful) {
         Fluttertoast.showToast(
-          msg: "Opening maps for $shelterName...",
+          msg: "Opening navigation to $shelterName...",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: AppTheme.successLight,
@@ -917,37 +999,20 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
           fontSize: 16.0,
         );
       } else {
-        throw 'Could not launch maps application';
+        throw 'No compatible navigation app found';
       }
-    } catch (e) {
-      print('Error opening maps: $e');
       
-      // Alternative approach - provide manual instructions
-      if (shelterData.any((s) => s['name'] == shelterName)) {
-        final shelter = shelterData.firstWhere((s) => s['name'] == shelterName);
-        final lat = shelter['latitude'];
-        final lng = shelter['longitude'];
-        
-        if (lat != null && lng != null) {
-          Fluttertoast.showToast(
-            msg: "Maps app not available. Search coordinates: $lat, $lng in your maps app",
-            toastLength: Toast.LENGTH_LONG,
-            gravity: ToastGravity.BOTTOM,
-            backgroundColor: AppTheme.primaryLight,
-            textColor: Colors.white,
-            fontSize: 14.0,
-          );
-        } else {
-          Fluttertoast.showToast(
-            msg: "Please search for '$shelterName' manually in your maps app",
-            toastLength: Toast.LENGTH_LONG,
-            gravity: ToastGravity.BOTTOM,
-            backgroundColor: AppTheme.primaryLight,
-            textColor: Colors.white,
-            fontSize: 16.0,
-          );
-        }
-      }
+    } catch (e) {
+      print('Error opening navigation: $e');
+      
+      Fluttertoast.showToast(
+        msg: "Please search for '$shelterName' manually in your maps app",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: AppTheme.primaryLight,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
     }
   }
 
@@ -998,9 +1063,11 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
   }
 
   void _toggleSOS() {
-    setState(() {
-      isSOSActive = !isSOSActive;
-    });
+    if (mounted) {
+      setState(() {
+        isSOSActive = !isSOSActive;
+      });
+    }
 
     if (isSOSActive) {
       Fluttertoast.showToast(

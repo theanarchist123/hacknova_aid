@@ -12,7 +12,16 @@ import './widgets/progress_indicator_widget.dart';
 import './widgets/severity_slider_widget.dart';
 
 class IncidentReportingScreen extends StatefulWidget {
-  const IncidentReportingScreen({Key? key}) : super(key: key);
+  final String? initialLocation;
+  final double? initialLatitude;
+  final double? initialLongitude;
+  
+  const IncidentReportingScreen({
+    Key? key,
+    this.initialLocation,
+    this.initialLatitude,
+    this.initialLongitude,
+  }) : super(key: key);
 
   @override
   State<IncidentReportingScreen> createState() =>
@@ -46,6 +55,22 @@ class _IncidentReportingScreenState extends State<IncidentReportingScreen> {
   void initState() {
     super.initState();
     _loadDraftData();
+    _initializeWithPassedData();
+  }
+  
+  void _initializeWithPassedData() {
+    // Initialize with passed location data from map pin
+    if (widget.initialLocation != null) {
+      setState(() {
+        _selectedLocation = widget.initialLocation!;
+      });
+    }
+    if (widget.initialLatitude != null && widget.initialLongitude != null) {
+      setState(() {
+        _latitude = widget.initialLatitude!;
+        _longitude = widget.initialLongitude!;
+      });
+    }
   }
 
   @override

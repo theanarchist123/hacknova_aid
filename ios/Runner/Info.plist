@@ -52,5 +52,13 @@
 	<string>This app needs location access to find nearby emergency shelters and disaster alerts.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs location access to provide emergency services and disaster alerts.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+		<string>googlemaps</string>
+		<string>maps</string>
+		<string>waze</string>
+		<string>tel</string>
+	</array>
 </dict>
 </plist>

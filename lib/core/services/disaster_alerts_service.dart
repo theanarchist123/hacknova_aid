@@ -1,13 +1,11 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:geolocator/geolocator.dart';
 import '../config/api_config.dart';
+import 'free_alerts_service.dart';
 
 class DisasterAlertsService {
-  // Using API config for endpoints
+  // Using API config for endpoints (legacy fallback)
   static const String _usgsEarthquakeUrl = ApiConfig.usgsEarthquakeApi;
-  static const String _gdacsUrl = ApiConfig.gdacsApi;
   
   Future<List<Map<String, dynamic>>> fetchDisasterAlerts({
     double? latitude,
@@ -15,326 +13,173 @@ class DisasterAlertsService {
     int radiusKm = 100,
   }) async {
     try {
-      List<Map<String, dynamic>> allAlerts = [];
+      print('🚨 Fetching disaster alerts using free CORS-safe APIs...');
       
-      // For web platform, use enhanced mock data due to CORS restrictions
-      if (kIsWeb) {
-        print('Web platform detected - using enhanced mock data for disaster alerts');
-        return _getEnhancedWebAlerts(latitude, longitude);
+      // Primary source: Use the new free alerts service (USGS + NASA EONET + ReliefWeb)
+      if (latitude != null && longitude != null) {
+        final freeAlerts = await FreeAlertsService.instance.fetchAlertsNear(
+          lat: latitude,
+          lon: longitude,
+          days: 7, // Last 7 days
+          radiusKm: radiusKm,
+        );
+        
+        print('✅ Fetched ${freeAlerts.length} alerts from free APIs');
+        
+        // If we have good results, return them
+        if (freeAlerts.isNotEmpty) {
+          return freeAlerts;
+        }
       }
       
-      // Fetch earthquake data
-      final earthquakeAlerts = await _fetchEarthquakeAlerts(latitude, longitude, radiusKm);
-      allAlerts.addAll(earthquakeAlerts);
+      // Fallback: Try legacy USGS directly if the free service fails
+      print('⚠️ Falling back to direct USGS API...');
+      final fallbackAlerts = await _fetchUSGSFallback(latitude, longitude, radiusKm);
       
-      // Fetch GDACS alerts (Global Disaster Alert and Coordination System)
-      final gdacsAlerts = await _fetchGDACSAlerts(latitude, longitude);
-      allAlerts.addAll(gdacsAlerts);
+      if (fallbackAlerts.isNotEmpty) {
+        return fallbackAlerts;
+      }
       
-      // Fetch NASA fire data
-      final fireAlerts = await _fetchFireAlerts(latitude, longitude);
-      allAlerts.addAll(fireAlerts);
+      // Last resort: Emergency static data
+      print('📋 Using emergency fallback alerts...');
+      return _getEmergencyFallbackAlerts(latitude, longitude);
       
-      // Add mock weather alerts until you get OpenWeatherMap API key
-      final weatherAlerts = _getMockWeatherAlerts(latitude, longitude);
-      allAlerts.addAll(weatherAlerts);
-      
-      // Sort by severity and timestamp
-      allAlerts.sort((a, b) {
-        final severityOrder = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3};
-        final aSeverity = severityOrder[a['severity']] ?? 4;
-        final bSeverity = severityOrder[b['severity']] ?? 4;
-        
-        if (aSeverity != bSeverity) {
-          return aSeverity.compareTo(bSeverity);
-        }
-        
-        return DateTime.parse(b['timestamp']).compareTo(DateTime.parse(a['timestamp']));
-      });
-      
-      return allAlerts.take(20).toList(); // Limit to 20 most recent/severe alerts
     } catch (e) {
-      print('Error fetching disaster alerts: $e');
-      return _getFallbackAlerts(latitude, longitude);
+      print('❌ Error fetching disaster alerts: $e');
+      return _getEmergencyFallbackAlerts(latitude, longitude);
     }
   }
-  
-  Future<List<Map<String, dynamic>>> _fetchEarthquakeAlerts(double? lat, double? lon, int radius) async {
+
+  /// Legacy USGS fallback (direct API call)
+  Future<List<Map<String, dynamic>>> _fetchUSGSFallback(
+    double? latitude,
+    double? longitude,
+    int radiusKm,
+  ) async {
+    if (latitude == null || longitude == null) return [];
+    
     try {
-      // USGS Earthquake API - free and reliable
-      final response = await http.get(Uri.parse(_usgsEarthquakeUrl));
+      final startTime = DateTime.now().subtract(Duration(days: 7)).toIso8601String();
+      final url = Uri.parse(
+        '$_usgsEarthquakeUrl?format=geojson'
+        '&latitude=$latitude&longitude=$longitude'
+        '&maxradiuskm=$radiusKm&starttime=$startTime'
+      );
+      
+      final response = await http.get(url).timeout(Duration(seconds: 10));
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final features = data['features'] as List;
+        final features = (data['features'] as List?) ?? [];
         
-        List<Map<String, dynamic>> earthquakes = [];
-        
-        for (final feature in features) {
-          final properties = feature['properties'];
-          final geometry = feature['geometry'];
-          final coordinates = geometry['coordinates'];
+        return features.map<Map<String, dynamic>>((feature) {
+          final properties = feature['properties'] ?? {};
+          final coordinates = (feature['geometry']?['coordinates'] as List?) ?? [];
           
-          double eqLat = coordinates[1].toDouble();
-          double eqLon = coordinates[0].toDouble();
-          
-          // Filter by distance if location is available
-          if (lat != null && lon != null) {
-            double distance = Geolocator.distanceBetween(lat, lon, eqLat, eqLon) / 1000;
-            if (distance > radius) continue;
-          }
-          
-          earthquakes.add({
-            'id': properties['id'] ?? DateTime.now().millisecondsSinceEpoch,
-            'title': properties['title'] ?? 'Earthquake Alert',
+          final magnitude = (properties['mag'] as num?)?.toDouble();
+          final eventTime = properties['time'] as int?;
+          final timestamp = eventTime != null 
+              ? DateTime.fromMillisecondsSinceEpoch(eventTime, isUtc: true)
+              : DateTime.now();
+              
+          return {
+            'id': 'usgs_fallback_${properties['code'] ?? timestamp.millisecondsSinceEpoch}',
+            'title': 'Earthquake M${magnitude?.toStringAsFixed(1) ?? '?'} - ${properties['place'] ?? 'Unknown'}',
             'type': 'earthquake',
-            'severity': _mapEarthquakeSeverity(properties['mag']?.toDouble() ?? 0.0),
-            'description': 'Magnitude ${properties['mag']} earthquake detected. ${properties['place']}',
+            'description': properties['title'] ?? 'Earthquake detected',
+            'severity': magnitude != null && magnitude >= 5.0 ? 'severe' : 'moderate',
+            'severityLevel': magnitude != null && magnitude >= 5.0 ? 4 : 3,
+            'source': 'USGS (Fallback)',
+            'lat': coordinates.length >= 2 ? (coordinates[1] as num).toDouble() : null,
+            'lon': coordinates.length >= 2 ? (coordinates[0] as num).toDouble() : null,
+            'timestamp': timestamp.toIso8601String(),
+            'magnitude': magnitude,
+            'location': properties['place'],
             'affectedArea': properties['place'] ?? 'Unknown location',
-            'timestamp': DateTime.fromMillisecondsSinceEpoch(properties['time']).toIso8601String(),
-            'latitude': eqLat,
-            'longitude': eqLon,
-            'magnitude': properties['mag'],
+            'coordinates': {
+              'latitude': coordinates.length >= 2 ? (coordinates[1] as num).toDouble() : null,
+              'longitude': coordinates.length >= 2 ? (coordinates[0] as num).toDouble() : null,
+            },
             'isRead': false,
             'isPinned': false,
             'status': 'active',
-            'source': 'USGS'
-          });
-        }
-        
-        return earthquakes;
+          };
+        }).toList();
       }
     } catch (e) {
-      print('Error fetching earthquake alerts: $e');
+      print('❌ USGS fallback failed: $e');
     }
+    
     return [];
   }
-  
-  Future<List<Map<String, dynamic>>> _fetchGDACSAlerts(double? lat, double? lon) async {
-    try {
-      // GDACS API - free global disaster alerts
-      final response = await http.get(Uri.parse(_gdacsUrl));
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        
-        if (data['features'] != null) {
-          final features = data['features'] as List;
-          
-          List<Map<String, dynamic>> disasters = [];
-          
-          for (final feature in features) {
-            final properties = feature['properties'];
-            
-            disasters.add({
-              'id': properties['eventid'] ?? DateTime.now().millisecondsSinceEpoch,
-              'title': properties['name'] ?? 'Disaster Alert',
-              'type': _mapGDACSEventType(properties['eventtype'] ?? 'disaster'),
-              'severity': _mapGDACSSeverity(properties['alertlevel'] ?? 'Green'),
-              'description': properties['description'] ?? 'Disaster event detected in the region.',
-              'affectedArea': properties['country'] ?? 'Multiple regions',
-              'timestamp': _parseGDACSDate(properties['fromdate']),
-              'isRead': false,
-              'isPinned': false,
-              'status': 'active',
-              'source': 'GDACS'
-            });
-          }
-          
-          return disasters;
-        }
-      }
-    } catch (e) {
-      print('Error fetching GDACS alerts: $e');
-    }
-    return [];
-  }
-  
-  Future<List<Map<String, dynamic>>> _fetchFireAlerts(double? lat, double? lon) async {
-    try {
-      // NASA FIRMS API - free fire/hotspot data
-      // For demo, using mock data. You can get free NASA FIRMS API key
-      return _getMockFireAlerts(lat, lon);
-    } catch (e) {
-      print('Error fetching fire alerts: $e');
-      return [];
-    }
-  }
-  
-  List<Map<String, dynamic>> _getMockWeatherAlerts(double? lat, double? lon) {
-    // Mock weather alerts until you get OpenWeatherMap API key
+
+  /// Emergency fallback alerts when all APIs fail
+  List<Map<String, dynamic>> _getEmergencyFallbackAlerts(double? lat, double? lon) {
     final now = DateTime.now();
-    
     return [
       {
-        'id': 'weather_${now.millisecondsSinceEpoch}',
-        'title': 'Flash Flood Warning',
-        'type': 'flood',
-        'severity': 'critical',
-        'description': 'Heavy rainfall expected in your area. Stay indoors and avoid low-lying areas.',
-        'affectedArea': lat != null && lon != null ? 'Your Current Area' : 'Mumbai, Maharashtra',
-        'timestamp': now.toIso8601String(),
-        'isRead': false,
-        'isPinned': false,
-        'status': 'active',
-        'source': 'Weather Service'
-      }
-    ];
-  }
-  
-  List<Map<String, dynamic>> _getMockFireAlerts(double? lat, double? lon) {
-    final now = DateTime.now();
-    
-    return [
-      {
-        'id': 'fire_${now.millisecondsSinceEpoch}',
-        'title': 'Wildfire Alert',
-        'type': 'fire',
-        'severity': 'high',
-        'description': 'Active wildfire detected. Evacuate if advised by authorities.',
-        'affectedArea': lat != null && lon != null ? '25km from your location' : 'Forest Area',
-        'timestamp': now.subtract(Duration(hours: 1)).toIso8601String(),
-        'isRead': false,
-        'isPinned': false,
-        'status': 'active',
-        'source': 'NASA FIRMS'
-      }
-    ];
-  }
-  
-  String _mapEarthquakeSeverity(double magnitude) {
-    if (magnitude >= 7.0) return 'critical';
-    if (magnitude >= 6.0) return 'high';
-    if (magnitude >= 4.5) return 'medium';
-    return 'low';
-  }
-  
-  String _mapGDACSEventType(String eventType) {
-    switch (eventType.toLowerCase()) {
-      case 'fl': case 'flood': return 'flood';
-      case 'tc': case 'cyclone': return 'cyclone';
-      case 'eq': case 'earthquake': return 'earthquake';
-      case 'ts': case 'tsunami': return 'tsunami';
-      case 'vo': case 'volcano': return 'volcano';
-      case 'dr': case 'drought': return 'drought';
-      case 'wf': case 'wildfire': return 'fire';
-      default: return 'disaster';
-    }
-  }
-  
-  String _mapGDACSSeverity(String alertLevel) {
-    switch (alertLevel.toLowerCase()) {
-      case 'red': return 'critical';
-      case 'orange': return 'high';
-      case 'yellow': return 'medium';
-      case 'green': return 'low';
-      default: return 'medium';
-    }
-  }
-  
-  String _parseGDACSDate(String? dateString) {
-    if (dateString == null) return DateTime.now().toIso8601String();
-    
-    try {
-      // Parse various GDACS date formats
-      final date = DateTime.parse(dateString);
-      return date.toIso8601String();
-    } catch (e) {
-      return DateTime.now().toIso8601String();
-    }
-  }
-  
-  List<Map<String, dynamic>> _getFallbackAlerts(double? lat, double? lon) {
-    // Fallback alerts if all APIs fail
-    final now = DateTime.now();
-    
-    return [
-      {
-        'id': 'fallback_1',
-        'title': 'System Alert',
-        'type': 'info',
-        'severity': 'low',
-        'description': 'Unable to fetch live alerts. Please check your internet connection.',
-        'affectedArea': 'System',
-        'timestamp': now.toIso8601String(),
-        'isRead': false,
-        'isPinned': false,
-        'status': 'active',
-        'source': 'System'
-      }
-    ];
-  }
-  
-  List<Map<String, dynamic>> _getEnhancedWebAlerts(double? lat, double? lon) {
-    // Enhanced web alerts with realistic disaster scenarios for Mumbai area
-    final now = DateTime.now();
-    
-    return [
-      {
-        'id': 'web_monsoon_1',
-        'title': 'Heavy Monsoon Rainfall Alert',
-        'type': 'flood',
-        'severity': 'critical',
-        'description': 'Mumbai Metropolitan Region expects heavy to very heavy rainfall in next 24 hours. Waterlogging likely in low-lying areas. Avoid unnecessary travel.',
-        'affectedArea': lat != null ? 'Mumbai Metropolitan Region' : 'Your Area',
-        'timestamp': now.subtract(Duration(minutes: 30)).toIso8601String(),
-        'isRead': false,
-        'isPinned': false,
-        'status': 'active',
-        'source': 'IMD Mumbai'
-      },
-      {
-        'id': 'web_cyclone_1',
-        'title': 'Cyclonic Weather System',
-        'type': 'cyclone',
-        'severity': 'high',
-        'description': 'Low pressure area over Arabian Sea likely to intensify. Coastal areas advised to stay alert. Wind speeds may reach 60-70 kmph.',
-        'affectedArea': 'Western Coast Maharashtra',
-        'timestamp': now.subtract(Duration(hours: 2)).toIso8601String(),
-        'isRead': false,
-        'isPinned': false,
-        'status': 'active',
-        'source': 'Cyclone Warning Center'
-      },
-      {
-        'id': 'web_earthquake_1',
-        'title': 'Seismic Activity Detected',
-        'type': 'earthquake',
-        'severity': 'medium',
-        'description': 'Magnitude 4.2 earthquake detected 150km from Mumbai. No immediate threat but monitoring continues.',
-        'affectedArea': 'Maharashtra Region',
-        'timestamp': now.subtract(Duration(hours: 4)).toIso8601String(),
-        'isRead': false,
-        'isPinned': false,
-        'status': 'active',
-        'source': 'National Seismology Center'
-      },
-      {
-        'id': 'web_heatwave_1',
-        'title': 'Heat Wave Conditions',
+        'id': 'fallback_weather_${now.millisecondsSinceEpoch}',
+        'title': 'Weather Monitoring Active',
         'type': 'weather',
-        'severity': 'medium',
-        'description': 'Temperatures expected to rise 2-4 degrees above normal. Stay hydrated and avoid outdoor activities during peak hours.',
-        'affectedArea': 'Mumbai and adjoining areas',
-        'timestamp': now.subtract(Duration(hours: 8)).toIso8601String(),
+        'category': 'monitoring',
+        'severity': 'info',
+        'severityLevel': 1,
+        'description': 'Weather monitoring systems are active. Stay alert for weather updates.',
+        'source': 'Emergency Fallback System',
+        'timestamp': now.toIso8601String(),
+        'lat': lat,
+        'lon': lon,
+        'affectedArea': lat != null && lon != null ? 'Your area' : 'Unknown location',
+        'coordinates': {
+          'latitude': lat,
+          'longitude': lon,
+        },
         'isRead': false,
         'isPinned': false,
         'status': 'active',
-        'source': 'Weather Department'
+        'distance_km': 0.0,
       },
       {
-        'id': 'web_fire_1',
-        'title': 'Fire Incident Report',
-        'type': 'fire',
-        'severity': 'low',
-        'description': 'Small fire incident reported and controlled. No casualties. Emergency services on standby.',
-        'affectedArea': 'Industrial Area Andheri',
-        'timestamp': now.subtract(Duration(hours: 12)).toIso8601String(),
+        'id': 'fallback_emergency_${(now.millisecondsSinceEpoch + 1)}',
+        'title': 'Emergency Services Available',
+        'type': 'emergency_services',
+        'category': 'information',
+        'severity': 'info',
+        'severityLevel': 1,
+        'description': 'Emergency services and disaster response teams are available 24/7.',
+        'source': 'Emergency Fallback System',
+        'timestamp': now.subtract(Duration(hours: 1)).toIso8601String(),
+        'lat': lat,
+        'lon': lon,
+        'affectedArea': 'Regional coverage',
+        'coordinates': {
+          'latitude': lat,
+          'longitude': lon,
+        },
         'isRead': false,
         'isPinned': false,
-        'status': 'resolved',
-        'source': 'Mumbai Fire Brigade'
-      }
+        'status': 'active',
+        'distance_km': 5.0,
+      },
     ];
+  }
+
+  /// Test connectivity to disaster alert services
+  Future<bool> testConnectivity() async {
+    try {
+      final connectivityResults = await FreeAlertsService.instance.testConnectivity();
+      final anyAvailable = connectivityResults.values.any((available) => available);
+      
+      if (anyAvailable) {
+        print('✅ At least one disaster alert service is available');
+        return true;
+      } else {
+        print('⚠️ No disaster alert services available - will use fallback data');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Connectivity test failed: $e');
+      return false;
+    }
   }
 }

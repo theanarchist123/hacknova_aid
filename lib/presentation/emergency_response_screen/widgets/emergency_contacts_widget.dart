@@ -146,6 +146,7 @@ class EmergencyContactsWidget extends StatelessWidget {
             ),
             SizedBox(width: 3.w),
             Expanded(
+              flex: 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -163,7 +164,9 @@ class EmergencyContactsWidget extends StatelessWidget {
                         ?.copyWith(
                           color: color,
                           fontWeight: FontWeight.w500,
+                          fontSize: 13.sp,
                         ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     type,
@@ -174,6 +177,7 @@ class EmergencyContactsWidget extends StatelessWidget {
                 ],
               ),
             ),
+            SizedBox(width: 2.w),
             Container(
               padding: EdgeInsets.all(2.w),
               decoration: BoxDecoration(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../core/app_export.dart';
+import '../../core/services/disaster_alerts_service.dart';
 import './widgets/alert_card_widget.dart';
 import './widgets/alert_filter_chips_widget.dart';
 import './widgets/filter_bottom_sheet_widget.dart';
@@ -17,6 +19,7 @@ class DisasterAlertsScreen extends StatefulWidget {
 class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final DisasterAlertsService _alertsService = DisasterAlertsService();
 
   String _selectedCategory = 'All';
   String _selectedSeverity = 'All';
@@ -24,116 +27,13 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
   DateTimeRange? _selectedDateRange;
   String _searchQuery = '';
   bool _isRefreshing = false;
+  bool _isLoading = true;
+  Position? _currentPosition;
 
   final List<String> _categories = ['All', 'Active', 'Warnings', 'Resolved'];
 
-  // Mock disaster alerts data
-  final List<Map<String, dynamic>> _mockAlerts = [
-    {
-      "id": 1,
-      "title": "Severe Cyclone Warning - Coastal Areas",
-      "type": "cyclone",
-      "severity": "critical",
-      "description":
-          "A severe cyclone is approaching the coastal regions. Wind speeds expected to reach 150 km/h. Immediate evacuation recommended for low-lying areas.",
-      "affectedArea": "Mumbai, Thane, Raigad Districts",
-      "timestamp": DateTime.now().subtract(Duration(minutes: 15)),
-      "isRead": false,
-      "isPinned": true,
-      "status": "active"
-    },
-    {
-      "id": 2,
-      "title": "Flash Flood Alert - River Basin",
-      "type": "flood",
-      "severity": "warning",
-      "description":
-          "Heavy rainfall has caused river levels to rise rapidly. Flash flooding possible in low-lying areas near river basins.",
-      "affectedArea": "Pune, Satara, Sangli Districts",
-      "timestamp": DateTime.now().subtract(Duration(hours: 2)),
-      "isRead": false,
-      "isPinned": false,
-      "status": "active"
-    },
-    {
-      "id": 3,
-      "title": "Earthquake Tremors Detected",
-      "type": "earthquake",
-      "severity": "info",
-      "description":
-          "Minor earthquake tremors of magnitude 4.2 detected. No immediate threat, but residents advised to stay alert.",
-      "affectedArea": "Delhi, Gurgaon, Noida",
-      "timestamp": DateTime.now().subtract(Duration(hours: 4)),
-      "isRead": true,
-      "isPinned": false,
-      "status": "resolved"
-    },
-    {
-      "id": 4,
-      "title": "Forest Fire Outbreak",
-      "type": "fire",
-      "severity": "warning",
-      "description":
-          "Multiple forest fires reported in hilly regions. Smoke may affect air quality in nearby urban areas.",
-      "affectedArea": "Shimla, Kullu, Mandi Districts",
-      "timestamp": DateTime.now().subtract(Duration(hours: 6)),
-      "isRead": false,
-      "isPinned": false,
-      "status": "active"
-    },
-    {
-      "id": 5,
-      "title": "Disease Outbreak Alert",
-      "type": "outbreak",
-      "severity": "warning",
-      "description":
-          "Increased cases of dengue fever reported. Health authorities recommend preventive measures against mosquito breeding.",
-      "affectedArea": "Bangalore, Mysore, Mangalore",
-      "timestamp": DateTime.now().subtract(Duration(days: 1)),
-      "isRead": true,
-      "isPinned": false,
-      "status": "active"
-    },
-    {
-      "id": 6,
-      "title": "Severe Thunderstorm Warning",
-      "type": "storm",
-      "severity": "warning",
-      "description":
-          "Severe thunderstorms with hail expected. Strong winds and heavy rainfall likely to cause disruptions.",
-      "affectedArea": "Hyderabad, Warangal, Nizamabad",
-      "timestamp": DateTime.now().subtract(Duration(days: 2)),
-      "isRead": true,
-      "isPinned": false,
-      "status": "resolved"
-    },
-    {
-      "id": 7,
-      "title": "Drought Conditions Worsening",
-      "type": "drought",
-      "severity": "info",
-      "description":
-          "Prolonged dry conditions affecting agricultural areas. Water conservation measures recommended.",
-      "affectedArea": "Marathwada Region",
-      "timestamp": DateTime.now().subtract(Duration(days: 3)),
-      "isRead": false,
-      "isPinned": false,
-      "status": "active"
-    },
-    {
-      "id": 8,
-      "title": "Landslide Risk - Heavy Rainfall",
-      "type": "landslide",
-      "severity": "critical",
-      "description":
-          "Continuous heavy rainfall has increased landslide risk in hilly areas. Travel restrictions in place.",
-      "affectedArea": "Uttarakhand Hill Districts",
-      "timestamp": DateTime.now().subtract(Duration(days: 4)),
-      "isRead": true,
-      "isPinned": false,
-      "status": "resolved"
-    }
-  ];
+  // Real disaster alerts data from Ambee API
+  List<Map<String, dynamic>> _realAlerts = [];
 
   @override
   void initState() {
@@ -143,6 +43,115 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
         _searchQuery = _searchController.text;
       });
     });
+    _initializeAlerts();
+  }
+
+  Future<void> _initializeAlerts() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Get current location
+      await _getCurrentLocation();
+      
+      // Fetch real disaster alerts
+      await _loadRealAlerts();
+    } catch (e) {
+      print('Error initializing alerts: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('Location services are disabled.');
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          print('Location permissions are denied');
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        print('Location permissions are permanently denied');
+        return;
+      }
+
+      _currentPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      print('Current location: ${_currentPosition?.latitude}, ${_currentPosition?.longitude}');
+    } catch (e) {
+      print('Error getting location: $e');
+    }
+  }
+
+  Future<void> _loadRealAlerts() async {
+    try {
+      final alerts = await _alertsService.fetchDisasterAlerts(
+        latitude: _currentPosition?.latitude,
+        longitude: _currentPosition?.longitude,
+        radiusKm: 100,
+      );
+      
+      setState(() {
+        _realAlerts = alerts;
+      });
+      
+      print('Loaded ${alerts.length} real disaster alerts');
+    } catch (e) {
+      print('Error loading real alerts: $e');
+      setState(() {
+        _realAlerts = _getEmergencyFallbackAlerts();
+      });
+    }
+  }
+
+  Future<void> _refreshAlerts() async {
+    setState(() {
+      _isRefreshing = true;
+    });
+
+    try {
+      await _getCurrentLocation();
+      await _loadRealAlerts();
+    } catch (e) {
+      print('Error refreshing alerts: $e');
+    } finally {
+      setState(() {
+        _isRefreshing = false;
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> _getEmergencyFallbackAlerts() {
+    final now = DateTime.now();
+    return [
+      {
+        'id': 'fallback_1',
+        'title': 'Service Notification',
+        'type': 'info',
+        'severity': 'info',
+        'description': 'Unable to fetch live disaster alerts. Please check your internet connection and try again.',
+        'affectedArea': 'System Status',
+        'timestamp': now.toIso8601String(),
+        'isRead': false,
+        'isPinned': false,
+        'status': 'active',
+        'source': 'Emergency Alert System'
+      }
+    ];
   }
 
   @override
@@ -153,7 +162,7 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
   }
 
   List<Map<String, dynamic>> get _filteredAlerts {
-    List<Map<String, dynamic>> filtered = List.from(_mockAlerts);
+    List<Map<String, dynamic>> filtered = List.from(_realAlerts);
 
     // Filter by category
     if (_selectedCategory != 'All') {
@@ -162,7 +171,7 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
           case 'active':
             return alert['status'] == 'active';
           case 'warnings':
-            return alert['severity'] == 'warning';
+            return alert['severity'] == 'warning' || alert['severity'] == 'critical';
           case 'resolved':
             return alert['status'] == 'resolved';
           default:
@@ -192,7 +201,17 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
     // Filter by date range
     if (_selectedDateRange != null) {
       filtered = filtered.where((alert) {
-        final alertDate = alert['timestamp'] as DateTime;
+        final alertTimestamp = alert['timestamp'];
+        DateTime alertDate;
+        
+        if (alertTimestamp is String) {
+          alertDate = DateTime.parse(alertTimestamp);
+        } else if (alertTimestamp is DateTime) {
+          alertDate = alertTimestamp;
+        } else {
+          return false;
+        }
+        
         return alertDate.isAfter(
                 _selectedDateRange!.start.subtract(Duration(days: 1))) &&
             alertDate.isBefore(_selectedDateRange!.end.add(Duration(days: 1)));
@@ -218,8 +237,28 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
       if (a['isPinned'] == true && b['isPinned'] != true) return -1;
       if (b['isPinned'] == true && a['isPinned'] != true) return 1;
 
-      final aTime = a['timestamp'] as DateTime;
-      final bTime = b['timestamp'] as DateTime;
+      final aTimestamp = a['timestamp'];
+      final bTimestamp = b['timestamp'];
+      
+      DateTime aTime, bTime;
+      
+      // Handle both String and DateTime formats
+      if (aTimestamp is String) {
+        aTime = DateTime.parse(aTimestamp);
+      } else if (aTimestamp is DateTime) {
+        aTime = aTimestamp;
+      } else {
+        aTime = DateTime.now();
+      }
+      
+      if (bTimestamp is String) {
+        bTime = DateTime.parse(bTimestamp);
+      } else if (bTimestamp is DateTime) {
+        bTime = bTimestamp;
+      } else {
+        bTime = DateTime.now();
+      }
+
       return bTime.compareTo(aTime);
     });
 
@@ -335,30 +374,32 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
 
             // Alerts List
             Expanded(
-              child: _filteredAlerts.isEmpty
-                  ? _buildEmptyState()
-                  : RefreshIndicator(
-                      onRefresh: _refreshAlerts,
-                      color: AppTheme.lightTheme.colorScheme.primary,
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: _filteredAlerts.length,
-                        itemBuilder: (context, index) {
-                          final alert = _filteredAlerts[index];
-                          return AlertCardWidget(
-                            alert: alert,
-                            onTap: () => _showAlertDetails(alert),
-                            onShare: () => _shareAlert(alert),
-                            onReminder: () => _setReminder(alert),
-                            onMarkRead: () => _toggleReadStatus(alert),
-                            onPin: () => _togglePinStatus(alert),
-                            onHide: () => _hideAlertType(alert),
-                            onReport: () => _reportFalseAlert(alert),
-                          );
-                        },
-                      ),
-                    ),
+              child: _isLoading
+                  ? _buildLoadingState()
+                  : _filteredAlerts.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _refreshAlerts,
+                          color: AppTheme.lightTheme.colorScheme.primary,
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            itemCount: _filteredAlerts.length,
+                            itemBuilder: (context, index) {
+                              final alert = _filteredAlerts[index];
+                              return AlertCardWidget(
+                                alert: alert,
+                                onTap: () => _showAlertDetails(alert),
+                                onShare: () => _shareAlert(alert),
+                                onReminder: () => _setReminder(alert),
+                                onMarkRead: () => _toggleReadStatus(alert),
+                                onPin: () => _togglePinStatus(alert),
+                                onHide: () => _hideAlertType(alert),
+                                onReport: () => _reportFalseAlert(alert),
+                              );
+                            },
+                          ),
+                        ),
             ),
           ],
         ),
@@ -374,6 +415,35 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
           color: AppTheme.lightTheme.floatingActionButtonTheme.foregroundColor!,
           size: 6.w,
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: AppTheme.lightTheme.colorScheme.primary,
+          ),
+          SizedBox(height: 2.h),
+          Text(
+            'Loading disaster alerts...',
+            style: TextStyle(
+              fontSize: 16.sp,
+              color: AppTheme.lightTheme.textTheme.bodyMedium?.color,
+            ),
+          ),
+          SizedBox(height: 1.h),
+          Text(
+            'Fetching real-time data from Ambee API',
+            style: TextStyle(
+              fontSize: 12.sp,
+              color: AppTheme.lightTheme.textTheme.bodySmall?.color,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -411,27 +481,6 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
             child: Text('Clear Filters'),
           ),
         ],
-      ),
-    );
-  }
-
-  Future<void> _refreshAlerts() async {
-    setState(() {
-      _isRefreshing = true;
-    });
-
-    // Simulate network request
-    await Future.delayed(Duration(seconds: 2));
-
-    setState(() {
-      _isRefreshing = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Alerts refreshed successfully'),
-        backgroundColor: AppTheme.lightTheme.colorScheme.tertiary,
-        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -578,19 +627,19 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
 
   void _toggleReadStatus(Map<String, dynamic> alert) {
     setState(() {
-      final index = _mockAlerts.indexWhere((a) => a['id'] == alert['id']);
+      final index = _realAlerts.indexWhere((a) => a['id'] == alert['id']);
       if (index != -1) {
-        _mockAlerts[index]['isRead'] = !(_mockAlerts[index]['isRead'] ?? false);
+        _realAlerts[index]['isRead'] = !(_realAlerts[index]['isRead'] ?? false);
       }
     });
   }
 
   void _togglePinStatus(Map<String, dynamic> alert) {
     setState(() {
-      final index = _mockAlerts.indexWhere((a) => a['id'] == alert['id']);
+      final index = _realAlerts.indexWhere((a) => a['id'] == alert['id']);
       if (index != -1) {
-        _mockAlerts[index]['isPinned'] =
-            !(_mockAlerts[index]['isPinned'] ?? false);
+        _realAlerts[index]['isPinned'] =
+            !(_realAlerts[index]['isPinned'] ?? false);
       }
     });
   }
