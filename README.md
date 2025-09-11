@@ -4,7 +4,7 @@ A modern Flutter-based mobile application utilizing the latest mobile developmen
 
 ## 📋 Prerequisites
 
-- Flutter SDK (^3.29.2)
+- Flutter SDK (3.35.3)
 - Dart SDK
 - Android Studio / VS Code with Flutter extensions
 - Android SDK / Xcode (for iOS development)
