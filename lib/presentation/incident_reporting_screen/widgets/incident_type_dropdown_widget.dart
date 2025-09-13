@@ -8,10 +8,10 @@ class IncidentTypeDropdownWidget extends StatelessWidget {
   final Function(String?) onChanged;
 
   const IncidentTypeDropdownWidget({
-    Key? key,
+    super.key,
     required this.selectedType,
     required this.onChanged,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +39,7 @@ class IncidentTypeDropdownWidget extends StatelessWidget {
         ),
       ),
       child: DropdownButtonFormField<String>(
-        value: selectedType,
+        initialValue: selectedType,
         decoration: InputDecoration(
           labelText: "Incident Type *",
           labelStyle: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(

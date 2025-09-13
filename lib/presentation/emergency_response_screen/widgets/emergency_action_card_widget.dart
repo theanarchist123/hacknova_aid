@@ -12,14 +12,14 @@ class EmergencyActionCardWidget extends StatelessWidget {
   final VoidCallback? onLongPress;
 
   const EmergencyActionCardWidget({
-    Key? key,
+    super.key,
     required this.title,
     required this.subtitle,
     required this.iconName,
     required this.cardColor,
     required this.onTap,
     this.onLongPress,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

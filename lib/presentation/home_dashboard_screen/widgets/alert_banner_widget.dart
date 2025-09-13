@@ -9,11 +9,11 @@ class AlertBannerWidget extends StatefulWidget {
   final VoidCallback? onDismiss;
 
   const AlertBannerWidget({
-    Key? key,
+    super.key,
     required this.alertType,
     required this.alertMessage,
     this.onDismiss,
-  }) : super(key: key);
+  });
 
   @override
   State<AlertBannerWidget> createState() => _AlertBannerWidgetState();

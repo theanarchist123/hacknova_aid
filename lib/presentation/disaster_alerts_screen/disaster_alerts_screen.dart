@@ -10,7 +10,7 @@ import './widgets/filter_bottom_sheet_widget.dart';
 import './widgets/search_bar_widget.dart';
 
 class DisasterAlertsScreen extends StatefulWidget {
-  const DisasterAlertsScreen({Key? key}) : super(key: key);
+  const DisasterAlertsScreen({super.key});
 
   @override
   State<DisasterAlertsScreen> createState() => _DisasterAlertsScreenState();

@@ -10,15 +10,15 @@ class AlertFilterChipsWidget extends StatelessWidget {
   final Function(String) onCategorySelected;
 
   const AlertFilterChipsWidget({
-    Key? key,
+    super.key,
     required this.categories,
     required this.selectedCategory,
     required this.onCategorySelected,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 6.h,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,

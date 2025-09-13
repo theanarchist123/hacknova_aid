@@ -7,9 +7,9 @@ class RecentAlertsWidget extends StatefulWidget {
   final List<Map<String, dynamic>> alerts;
 
   const RecentAlertsWidget({
-    Key? key,
+    super.key,
     required this.alerts,
-  }) : super(key: key);
+  });
 
   @override
   State<RecentAlertsWidget> createState() => _RecentAlertsWidgetState();

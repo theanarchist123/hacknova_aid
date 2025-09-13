@@ -10,12 +10,12 @@ class SearchBarWidget extends StatelessWidget {
   final String hintText;
 
   const SearchBarWidget({
-    Key? key,
+    super.key,
     required this.controller,
     required this.onChanged,
     required this.onFilterTap,
     this.hintText = 'Search alerts...',
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

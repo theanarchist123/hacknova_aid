@@ -11,13 +11,13 @@ class ContactInfoWidget extends StatefulWidget {
   final Function(String, String, String, bool) onContactInfoChanged;
 
   const ContactInfoWidget({
-    Key? key,
+    super.key,
     required this.name,
     required this.phone,
     required this.email,
     required this.isAnonymous,
     required this.onContactInfoChanged,
-  }) : super(key: key);
+  });
 
   @override
   State<ContactInfoWidget> createState() => _ContactInfoWidgetState();

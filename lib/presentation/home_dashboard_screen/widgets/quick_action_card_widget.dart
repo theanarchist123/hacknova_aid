@@ -14,7 +14,7 @@ class QuickActionCardWidget extends StatefulWidget {
   final List<Map<String, dynamic>>? contextualActions;
 
   const QuickActionCardWidget({
-    Key? key,
+    super.key,
     required this.title,
     required this.iconName,
     required this.statusText,
@@ -22,7 +22,7 @@ class QuickActionCardWidget extends StatefulWidget {
     this.cardColor,
     required this.onTap,
     this.contextualActions,
-  }) : super(key: key);
+  });
 
   @override
   State<QuickActionCardWidget> createState() => _QuickActionCardWidgetState();
@@ -32,8 +32,9 @@ class _QuickActionCardWidgetState extends State<QuickActionCardWidget> {
   bool _isPressed = false;
 
   void _showContextualMenu() {
-    if (widget.contextualActions == null || widget.contextualActions!.isEmpty)
+    if (widget.contextualActions == null || widget.contextualActions!.isEmpty) {
       return;
+    }
 
     showModalBottomSheet(
       context: context,
@@ -78,7 +79,7 @@ class _QuickActionCardWidgetState extends State<QuickActionCardWidget> {
                         }
                       },
                     ))
-                .toList(),
+                ,
             SizedBox(height: 2.h),
           ],
         ),

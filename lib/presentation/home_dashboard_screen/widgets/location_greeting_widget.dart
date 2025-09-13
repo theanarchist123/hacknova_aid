@@ -9,11 +9,11 @@ class LocationGreetingWidget extends StatelessWidget {
   final String temperature;
 
   const LocationGreetingWidget({
-    Key? key,
+    super.key,
     required this.location,
     required this.weatherStatus,
     required this.temperature,
-  }) : super(key: key);
+  });
 
   String _getGreeting() {
     final hour = DateTime.now().hour;

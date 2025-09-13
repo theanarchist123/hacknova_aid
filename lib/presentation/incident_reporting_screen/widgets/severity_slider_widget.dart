@@ -8,10 +8,10 @@ class SeveritySliderWidget extends StatelessWidget {
   final Function(double) onChanged;
 
   const SeveritySliderWidget({
-    Key? key,
+    super.key,
     required this.severity,
     required this.onChanged,
-  }) : super(key: key);
+  });
 
   Color _getSeverityColor(double value) {
     if (value <= 3) {

@@ -25,7 +25,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       GlobalKey<RefreshIndicatorState>();
   bool _isRefreshing = false;
   bool _hasActiveAlert = false;
-  int _selectedBottomNavIndex = 0;
+  int _selectedBottomNavIndex = 2; // Home is at index 2 (center of 5 tabs)
 
   // Real-time data services
   final DisasterAlertsService _alertsService = DisasterAlertsService();
@@ -204,6 +204,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       case 'response':
         Navigator.pushNamed(context, '/emergency-response-screen');
         break;
+      case 'incident':
+        Navigator.pushNamed(context, '/interactive-map-screen');
+        break;
     }
   }
 
@@ -214,16 +217,38 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
     switch (index) {
       case 0:
-        // Already on Home
+        // OCR tab - placeholder for now
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('OCR screen coming soon!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
         break;
       case 1:
-        Navigator.pushNamed(context, '/interactive-map-screen');
+        // Bluetooth Chat tab - placeholder for now
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bluetooth Chat screen coming soon!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
         break;
       case 2:
-        Navigator.pushNamed(context, '/incident-reporting-screen');
+        // Already on Home - do nothing
         break;
       case 3:
-        // Settings - would navigate to settings screen
+        // Speech QnA tab - placeholder for now
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Speech Q&A screen coming soon!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        break;
+      case 4:
+        // Response tab - navigate to emergency response screen
+        Navigator.pushNamed(context, '/emergency-response-screen');
         break;
     }
   }
@@ -267,6 +292,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             'title': 'First Aid Guide',
             'icon': 'healing',
             'onTap': () => _handleQuickAction('response'),
+          },
+        ];
+      case 'incident':
+        return [
+          {
+            'title': 'Report Emergency',
+            'icon': 'warning',
+            'onTap': () => _handleQuickAction('incident'),
+          },
+          {
+            'title': 'View Map',
+            'icon': 'map',
+            'onTap': () => _handleQuickAction('incident'),
           },
         ];
       default:
@@ -368,6 +406,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                             contextualActions:
                                 _getContextualActions('response'),
                           ),
+                          QuickActionCardWidget(
+                            title: 'Incident Reporting',
+                            iconName: 'report_problem',
+                            statusText: 'Report emergencies',
+                            activityCount: 0,
+                            onTap: () => _handleQuickAction('incident'),
+                            contextualActions:
+                                _getContextualActions('incident'),
+                          ),
                         ],
                       ),
                     ],
@@ -416,8 +463,30 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
           items: [
             BottomNavigationBarItem(
               icon: CustomIconWidget(
-                iconName: 'home',
+                iconName: 'text_fields',
                 color: _selectedBottomNavIndex == 0
+                    ? AppTheme.lightTheme.colorScheme.primary
+                    : AppTheme.lightTheme.colorScheme.onSurface
+                        .withValues(alpha: 0.6),
+                size: 6.w,
+              ),
+              label: 'OCR',
+            ),
+            BottomNavigationBarItem(
+              icon: CustomIconWidget(
+                iconName: 'bluetooth',
+                color: _selectedBottomNavIndex == 1
+                    ? AppTheme.lightTheme.colorScheme.primary
+                    : AppTheme.lightTheme.colorScheme.onSurface
+                        .withValues(alpha: 0.6),
+                size: 6.w,
+              ),
+              label: 'Bluetooth',
+            ),
+            BottomNavigationBarItem(
+              icon: CustomIconWidget(
+                iconName: 'home',
+                color: _selectedBottomNavIndex == 2
                     ? AppTheme.lightTheme.colorScheme.primary
                     : AppTheme.lightTheme.colorScheme.onSurface
                         .withValues(alpha: 0.6),
@@ -426,56 +495,26 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
               label: 'Home',
             ),
             BottomNavigationBarItem(
-              icon: Stack(
-                children: [
-                  CustomIconWidget(
-                    iconName: 'map',
-                    color: _selectedBottomNavIndex == 1
-                        ? AppTheme.lightTheme.colorScheme.primary
-                        : AppTheme.lightTheme.colorScheme.onSurface
-                            .withValues(alpha: 0.6),
-                    size: 6.w,
-                  ),
-                  if (_recentAlerts
-                      .where((alert) => alert['severity'] == 'critical')
-                      .isNotEmpty)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: 2.w,
-                        height: 2.w,
-                        decoration: BoxDecoration(
-                          color: AppTheme.lightTheme.colorScheme.error,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              label: 'Map',
-            ),
-            BottomNavigationBarItem(
               icon: CustomIconWidget(
-                iconName: 'report',
-                color: _selectedBottomNavIndex == 2
-                    ? AppTheme.lightTheme.colorScheme.primary
-                    : AppTheme.lightTheme.colorScheme.onSurface
-                        .withValues(alpha: 0.6),
-                size: 6.w,
-              ),
-              label: 'Reports',
-            ),
-            BottomNavigationBarItem(
-              icon: CustomIconWidget(
-                iconName: 'settings',
+                iconName: 'mic',
                 color: _selectedBottomNavIndex == 3
                     ? AppTheme.lightTheme.colorScheme.primary
                     : AppTheme.lightTheme.colorScheme.onSurface
                         .withValues(alpha: 0.6),
                 size: 6.w,
               ),
-              label: 'Settings',
+              label: 'Speech Q&A',
+            ),
+            BottomNavigationBarItem(
+              icon: CustomIconWidget(
+                iconName: 'emergency',
+                color: _selectedBottomNavIndex == 4
+                    ? AppTheme.lightTheme.colorScheme.primary
+                    : AppTheme.lightTheme.colorScheme.onSurface
+                        .withValues(alpha: 0.6),
+                size: 6.w,
+              ),
+              label: 'Response',
             ),
           ],
         ),

@@ -175,7 +175,7 @@ class _MapFilterBottomSheetState extends State<MapFilterBottomSheet> {
             ),
           ],
         ),
-        activeColor: color,
+        activeThumbColor: color,
         contentPadding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 0.5.h),
       ),
     );

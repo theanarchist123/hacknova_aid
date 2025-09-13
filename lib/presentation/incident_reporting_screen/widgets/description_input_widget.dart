@@ -8,10 +8,10 @@ class DescriptionInputWidget extends StatefulWidget {
   final Function(String) onChanged;
 
   const DescriptionInputWidget({
-    Key? key,
+    super.key,
     required this.description,
     required this.onChanged,
-  }) : super(key: key);
+  });
 
   @override
   State<DescriptionInputWidget> createState() => _DescriptionInputWidgetState();

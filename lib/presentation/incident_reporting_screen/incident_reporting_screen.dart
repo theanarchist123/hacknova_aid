@@ -17,11 +17,11 @@ class IncidentReportingScreen extends StatefulWidget {
   final double? initialLongitude;
   
   const IncidentReportingScreen({
-    Key? key,
+    super.key,
     this.initialLocation,
     this.initialLatitude,
     this.initialLongitude,
-  }) : super(key: key);
+  });
 
   @override
   State<IncidentReportingScreen> createState() =>
@@ -93,8 +93,9 @@ class _IncidentReportingScreenState extends State<IncidentReportingScreen> {
     if (_selectedIncidentType != null) completedFields++;
     if (_selectedLocation.isNotEmpty) completedFields++;
     if (_description.isNotEmpty) completedFields++;
-    if (_isAnonymous || (_contactName.isNotEmpty && _contactPhone.isNotEmpty))
+    if (_isAnonymous || (_contactName.isNotEmpty && _contactPhone.isNotEmpty)) {
       completedFields++;
+    }
     if (_severityLevel > 0) completedFields++;
     if (_selectedImages.isNotEmpty) completedFields++;
 
@@ -337,7 +338,7 @@ class _IncidentReportingScreenState extends State<IncidentReportingScreen> {
                                   _isEmergencyPriority = value;
                                 });
                               },
-                              activeColor:
+                              activeThumbColor:
                                   AppTheme.lightTheme.colorScheme.error,
                             ),
                             SizedBox(width: 3.w),
