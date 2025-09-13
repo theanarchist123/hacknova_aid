@@ -4,7 +4,7 @@ import 'package:sizer/sizer.dart';
 import '../../../core/app_export.dart';
 
 class CommunicationToolsWidget extends StatefulWidget {
-  const CommunicationToolsWidget({Key? key}) : super(key: key);
+  const CommunicationToolsWidget({super.key});
 
   @override
   State<CommunicationToolsWidget> createState() =>
@@ -138,7 +138,7 @@ class _CommunicationToolsWidgetState extends State<CommunicationToolsWidget> {
         Switch(
           value: isEnabled,
           onChanged: onChanged,
-          activeColor: AppTheme.successLight,
+          activeThumbColor: AppTheme.successLight,
         ),
       ],
     );

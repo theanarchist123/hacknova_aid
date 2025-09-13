@@ -8,9 +8,9 @@ class EmergencyFabWidget extends StatefulWidget {
   final VoidCallback onPressed;
 
   const EmergencyFabWidget({
-    Key? key,
+    super.key,
     required this.onPressed,
-  }) : super(key: key);
+  });
 
   @override
   State<EmergencyFabWidget> createState() => _EmergencyFabWidgetState();

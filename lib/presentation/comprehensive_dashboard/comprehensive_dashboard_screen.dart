@@ -4,7 +4,7 @@ import '../../core/services/google_services.dart';
 import '../../core/services/location_service.dart';
 
 class ComprehensiveDashboardScreen extends StatefulWidget {
-  const ComprehensiveDashboardScreen({Key? key}) : super(key: key);
+  const ComprehensiveDashboardScreen({super.key});
 
   @override
   State<ComprehensiveDashboardScreen> createState() => _ComprehensiveDashboardScreenState();

@@ -15,7 +15,7 @@ class AlertCardWidget extends StatelessWidget {
   final VoidCallback? onReport;
 
   const AlertCardWidget({
-    Key? key,
+    super.key,
     required this.alert,
     this.onTap,
     this.onShare,
@@ -24,7 +24,7 @@ class AlertCardWidget extends StatelessWidget {
     this.onPin,
     this.onHide,
     this.onReport,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

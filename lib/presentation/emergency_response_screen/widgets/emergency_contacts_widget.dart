@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/app_export.dart';
 
 class EmergencyContactsWidget extends StatelessWidget {
-  const EmergencyContactsWidget({Key? key}) : super(key: key);
+  const EmergencyContactsWidget({super.key});
 
   @override
   Widget build(BuildContext context) {

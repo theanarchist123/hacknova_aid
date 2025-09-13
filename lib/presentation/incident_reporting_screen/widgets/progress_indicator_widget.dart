@@ -8,10 +8,10 @@ class ProgressIndicatorWidget extends StatelessWidget {
   final int estimatedTimeMinutes;
 
   const ProgressIndicatorWidget({
-    Key? key,
+    super.key,
     required this.progress,
     required this.estimatedTimeMinutes,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +71,7 @@ class ProgressIndicatorWidget extends StatelessWidget {
               ),
               SizedBox(width: 1.w),
               Text(
-                "Est. ${estimatedTimeMinutes} min remaining",
+                "Est. $estimatedTimeMinutes min remaining",
                 style: AppTheme.lightTheme.textTheme.bodySmall?.copyWith(
                   color: AppTheme.lightTheme.colorScheme.onSurfaceVariant,
                 ),

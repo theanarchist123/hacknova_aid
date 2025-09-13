@@ -11,12 +11,12 @@ class FilterBottomSheetWidget extends StatefulWidget {
       onApplyFilters;
 
   const FilterBottomSheetWidget({
-    Key? key,
+    super.key,
     required this.selectedSeverity,
     required this.selectedType,
     this.selectedDateRange,
     required this.onApplyFilters,
-  }) : super(key: key);
+  });
 
   @override
   State<FilterBottomSheetWidget> createState() =>

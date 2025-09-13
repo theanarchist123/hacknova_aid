@@ -9,11 +9,11 @@ class EmergencyStatusWidget extends StatelessWidget {
   final Color statusColor;
 
   const EmergencyStatusWidget({
-    Key? key,
+    super.key,
     required this.threatLevel,
     required this.location,
     required this.statusColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -13,10 +13,10 @@ class ImageUploadWidget extends StatefulWidget {
   final Function(List<XFile>) onImagesChanged;
 
   const ImageUploadWidget({
-    Key? key,
+    super.key,
     required this.selectedImages,
     required this.onImagesChanged,
-  }) : super(key: key);
+  });
 
   @override
   State<ImageUploadWidget> createState() => _ImageUploadWidgetState();
