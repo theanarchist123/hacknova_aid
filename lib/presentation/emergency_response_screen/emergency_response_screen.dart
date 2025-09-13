@@ -10,7 +10,6 @@ import '../../core/services/location_service.dart';
 import './widgets/communication_tools_widget.dart';
 import './widgets/emergency_action_card_widget.dart';
 import './widgets/emergency_contacts_widget.dart';
-import './widgets/emergency_status_widget.dart';
 
 class EmergencyResponseScreen extends StatefulWidget {
   const EmergencyResponseScreen({super.key});
@@ -219,62 +218,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Emergency Status Indicator
-              EmergencyStatusWidget(
-                threatLevel: currentThreatLevel,
-                location: currentLocation,
-                statusColor: _getThreatLevelColor(currentThreatLevel),
-              ),
-
-              // Main Action Cards
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4.w),
-                child: Text(
-                  'Emergency Actions',
-                  style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              SizedBox(height: 2.h),
-
-              // Find Shelter Card
-              EmergencyActionCardWidget(
-                title: 'Find Shelter',
-                subtitle:
-                    'Locate nearest emergency shelters with capacity info',
-                iconName: 'home',
-                cardColor: AppTheme.successLight,
-                onTap: () => _showShelterOptions(context),
-                onLongPress: () => _showShelterAdvancedOptions(context),
-              ),
-
-              // Emergency Contacts Card
-              EmergencyActionCardWidget(
-                title: 'Emergency Contacts',
-                subtitle:
-                    'Quick access to emergency services and personal contacts',
-                iconName: 'phone',
-                cardColor: AppTheme.primaryLight,
-                onTap: () => _showEmergencyContactsModal(context),
-                onLongPress: () => _broadcastLocation(),
-              ),
-
-              // First Aid Guide Card
-              EmergencyActionCardWidget(
-                title: 'First Aid Guide',
-                subtitle:
-                    'Offline medical procedures and emergency care instructions',
-                iconName: 'medical_services',
-                cardColor: AppTheme.secondaryLight,
-                onTap: () => _showFirstAidGuide(context),
-                onLongPress: () => _requestMedicalHelp(),
-              ),
-
-              // Communication Tools
-              const CommunicationToolsWidget(),
-
-              // SOS Emergency Button
+              // SOS Emergency Button (moved to top)
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(4.w),
@@ -336,25 +280,60 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                 ),
               ),
 
+              // Main Action Cards
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4.w),
+                child: Text(
+                  'Emergency Actions',
+                  style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              SizedBox(height: 2.h),
+
+              // Find Shelter Card
+              EmergencyActionCardWidget(
+                title: 'Find Shelter',
+                subtitle:
+                    'Locate nearest emergency shelters with capacity info',
+                iconName: 'home',
+                cardColor: AppTheme.successLight,
+                onTap: () => _showShelterOptions(context),
+                onLongPress: () => _showShelterAdvancedOptions(context),
+              ),
+
+              // Emergency Contacts Card
+              EmergencyActionCardWidget(
+                title: 'Emergency Contacts',
+                subtitle:
+                    'Quick access to emergency services and personal contacts',
+                iconName: 'phone',
+                cardColor: AppTheme.primaryLight,
+                onTap: () => _showEmergencyContactsModal(context),
+                onLongPress: () => _broadcastLocation(),
+              ),
+
+              // First Aid Guide Card
+              EmergencyActionCardWidget(
+                title: 'First Aid Guide',
+                subtitle:
+                    'Offline medical procedures and emergency care instructions',
+                iconName: 'medical_services',
+                cardColor: AppTheme.secondaryLight,
+                onTap: () => _showFirstAidGuide(context),
+                onLongPress: () => _requestMedicalHelp(),
+              ),
+
+              // Communication Tools
+              const CommunicationToolsWidget(),
+
               SizedBox(height: 4.h),
             ],
           ),
         ),
       ),
     );
-  }
-
-  Color _getThreatLevelColor(String level) {
-    switch (level.toUpperCase()) {
-      case 'HIGH':
-        return AppTheme.primaryLight;
-      case 'MEDIUM':
-        return AppTheme.secondaryLight;
-      case 'LOW':
-        return AppTheme.successLight;
-      default:
-        return AppTheme.primaryLight;
-    }
   }
 
   void _showShelterOptions(BuildContext context) {

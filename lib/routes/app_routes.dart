@@ -6,6 +6,9 @@ import '../presentation/emergency_response_screen/emergency_response_screen.dart
 import '../presentation/incident_reporting_screen/incident_reporting_screen.dart';
 import '../presentation/home_dashboard_screen/home_dashboard_screen.dart';
 import '../presentation/comprehensive_dashboard/comprehensive_dashboard_screen.dart';
+import '../presentation/ocr_screen/ocr_screen.dart';
+import '../presentation/bluetooth_sos_screen/bluetooth_sos_screen.dart';
+import '../presentation/speech_qna_screen/speech_qna_screen.dart';
 
 class AppRoutes {
   // TODO: Add your routes here
@@ -17,6 +20,9 @@ class AppRoutes {
   static const String incidentReporting = '/incident-reporting-screen';
   static const String homeDashboard = '/home-dashboard-screen';
   static const String comprehensiveDashboard = '/comprehensive-dashboard-screen';
+  static const String ocr = '/ocr-screen';
+  static const String bluetoothSOS = '/bluetooth-sos-screen';
+  static const String speechQna = '/speech-qna-screen';
 
   static Map<String, WidgetBuilder> routes = {
     initial: (context) => const SplashScreen(),
@@ -34,6 +40,9 @@ class AppRoutes {
     },
     homeDashboard: (context) => const HomeDashboardScreen(),
     comprehensiveDashboard: (context) => const ComprehensiveDashboardScreen(),
+    ocr: (context) => OCRScreen(),
+    bluetoothSOS: (context) => const BluetoothSOSScreen(),
+    speechQna: (context) => const SpeechQnaScreen(),
     // TODO: Add your other routes here
   };
 }

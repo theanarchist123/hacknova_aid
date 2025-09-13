@@ -217,34 +217,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
     switch (index) {
       case 0:
-        // OCR tab - placeholder for now
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('OCR screen coming soon!'),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        // OCR tab - navigate to OCR screen
+        Navigator.pushNamed(context, '/ocr-screen');
         break;
       case 1:
-        // Bluetooth Chat tab - placeholder for now
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bluetooth Chat screen coming soon!'),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        // Bluetooth Chat tab - navigate to Bluetooth SOS screen
+        Navigator.pushNamed(context, '/bluetooth-sos-screen');
         break;
       case 2:
         // Already on Home - do nothing
         break;
       case 3:
-        // Speech QnA tab - placeholder for now
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Speech Q&A screen coming soon!'),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        // Speech QnA tab - navigate to Speech QnA screen
+        Navigator.pushNamed(context, AppRoutes.speechQna);
         break;
       case 4:
         // Response tab - navigate to emergency response screen
@@ -333,7 +318,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
               if (_currentNotification != null)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.all(4.w),
+                    padding: EdgeInsets.all(2.w),
                     child: AlertBannerWidget(
                       alertType: _currentNotification!['severity'] ?? 'moderate',
                       alertMessage: '${_currentNotification!['icon'] ?? '⚠️'} ${_currentNotification!['title'] ?? 'Alert'}: ${_currentNotification!['message'] ?? 'Check disaster alerts for more information.'}',
@@ -357,7 +342,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
               // Quick Action Cards
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 0.5.h),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -368,14 +353,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(height: 2.h),
+                      SizedBox(height: 0.5.h),
                       GridView.count(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         crossAxisCount: 2,
-                        crossAxisSpacing: 4.w,
-                        mainAxisSpacing: 2.h,
-                        childAspectRatio: 1.0,
+                        crossAxisSpacing: 2.w,
+                        mainAxisSpacing: 0.5.h,
+                        childAspectRatio: 1.5,
                         children: [
                           QuickActionCardWidget(
                             title: 'Prediction',
@@ -429,7 +414,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
               // Bottom padding
               SliverToBoxAdapter(
-                child: SizedBox(height: 5.h),
+                child: SizedBox(height: 1.h),
               ),
             ],
           ),
