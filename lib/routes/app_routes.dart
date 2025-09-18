@@ -41,7 +41,7 @@ class AppRoutes {
     homeDashboard: (context) => const HomeDashboardScreen(),
     comprehensiveDashboard: (context) => const ComprehensiveDashboardScreen(),
     ocr: (context) => OCRScreen(),
-    bluetoothSOS: (context) => const BluetoothSOSScreen(),
+    bluetoothSOS: (context) => const BluetoothSosScreen(),
     speechQna: (context) => const SpeechQnaScreen(),
     // TODO: Add your other routes here
   };
