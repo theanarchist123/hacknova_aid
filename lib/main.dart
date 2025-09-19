@@ -4,9 +4,19 @@ import 'package:sizer/sizer.dart';
 
 import 'core/app_export.dart';
 import 'widgets/custom_error_widget.dart';
+import 'core/services/community_pin_store.dart';
+import 'core/services/alert_background_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize services for offline maps and alerts
+  try {
+    CommunityPinStore.initialize();
+    print('✅ Community pin store initialized');
+  } catch (e) {
+    print('⚠️ Community pin store initialization warning: $e');
+  }
 
   bool hasShownError = false;
 
