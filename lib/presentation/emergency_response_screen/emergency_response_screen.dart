@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/app_export.dart';
 import '../../core/services/shelter_service.dart';
 import '../../core/services/location_service.dart';
+import '../../core/services/localization_service.dart';
+import '../../core/models/disaster_safety_content.dart';
 import './widgets/communication_tools_widget.dart';
 import './widgets/emergency_action_card_widget.dart';
 import './widgets/emergency_contacts_widget.dart';
@@ -192,27 +194,30 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(
-          'Emergency Response',
-          style: AppTheme.lightTheme.appBarTheme.titleTextStyle,
-        ),
-        backgroundColor: AppTheme.lightTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        actions: [
-          IconButton(
-            onPressed: () => _showAdvancedOptions(context),
-            icon: CustomIconWidget(
-              iconName: 'more_vert',
-              color: Colors.white,
-              size: 6.w,
+    return ValueListenableBuilder<SupportedLanguage>(
+      valueListenable: LocalizationService.languageNotifier,
+      builder: (context, currentLang, child) {
+        return Scaffold(
+          backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
+          appBar: AppBar(
+            title: Text(
+              LocalizationService.translate(LocalizationService.emergencyResponse),
+              style: AppTheme.lightTheme.appBarTheme.titleTextStyle,
             ),
+            backgroundColor: AppTheme.lightTheme.primaryColor,
+            foregroundColor: Colors.white,
+            elevation: 2,
+            actions: [
+              IconButton(
+                onPressed: () => _showAdvancedOptions(context),
+                icon: CustomIconWidget(
+                  iconName: 'more_vert',
+                  color: Colors.white,
+                  size: 6.w,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -254,7 +259,9 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                             ),
                             SizedBox(height: 1.h),
                             Text(
-                              isSOSActive ? 'ACTIVE' : 'SOS',
+                              isSOSActive 
+                                  ? LocalizationService.translate(LocalizationService.sosActive)
+                                  : LocalizationService.translate(LocalizationService.sos),
                               style: AppTheme.lightTheme.textTheme.titleMedium
                                   ?.copyWith(
                                 color: Colors.white,
@@ -269,8 +276,8 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                     SizedBox(height: 2.h),
                     Text(
                       isSOSActive
-                          ? 'SOS signal is broadcasting your location'
-                          : 'Tap to send emergency SOS signal',
+                          ? LocalizationService.translate(LocalizationService.sosBroadcasting)
+                          : LocalizationService.translate(LocalizationService.sosInstruction),
                       textAlign: TextAlign.center,
                       style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
                         color: AppTheme.textMediumEmphasisLight,
@@ -284,7 +291,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4.w),
                 child: Text(
-                  'Emergency Actions',
+                  LocalizationService.translate(LocalizationService.emergencyActions),
                   style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -294,9 +301,8 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
 
               // Find Shelter Card
               EmergencyActionCardWidget(
-                title: 'Find Shelter',
-                subtitle:
-                    'Locate nearest emergency shelters with capacity info',
+                title: LocalizationService.translate(LocalizationService.findShelter),
+                subtitle: LocalizationService.translate(LocalizationService.findShelterDesc),
                 iconName: 'home',
                 cardColor: AppTheme.successLight,
                 onTap: () => _showShelterOptions(context),
@@ -305,9 +311,8 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
 
               // Emergency Contacts Card
               EmergencyActionCardWidget(
-                title: 'Emergency Contacts',
-                subtitle:
-                    'Quick access to emergency services and personal contacts',
+                title: LocalizationService.translate(LocalizationService.emergencyContacts),
+                subtitle: LocalizationService.translate(LocalizationService.emergencyContactsDesc),
                 iconName: 'phone',
                 cardColor: AppTheme.primaryLight,
                 onTap: () => _showEmergencyContactsModal(context),
@@ -316,13 +321,32 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
 
               // First Aid Guide Card
               EmergencyActionCardWidget(
-                title: 'First Aid Guide',
-                subtitle:
-                    'Offline medical procedures and emergency care instructions',
+                title: LocalizationService.translate(LocalizationService.firstAidGuide),
+                subtitle: LocalizationService.translate(LocalizationService.firstAidDesc),
                 iconName: 'medical_services',
                 cardColor: AppTheme.secondaryLight,
                 onTap: () => _showFirstAidGuide(context),
                 onLongPress: () => _requestMedicalHelp(),
+              ),
+
+              // Safety Instructions Card
+              EmergencyActionCardWidget(
+                title: LocalizationService.translate(LocalizationService.safetyInstructions),
+                subtitle: LocalizationService.translate(LocalizationService.safetyInstructionsDesc),
+                iconName: 'security',
+                cardColor: Colors.deepPurple.shade400,
+                onTap: () => _navigateToSafetyInstructions(context),
+                onLongPress: () => _showQuickSafetyTips(context),
+              ),
+
+              // Emergency Guides Card
+              EmergencyActionCardWidget(
+                title: LocalizationService.translate(LocalizationService.emergencyGuides),
+                subtitle: LocalizationService.translate(LocalizationService.emergencyGuidesDesc),
+                iconName: 'menu_book',
+                cardColor: Colors.teal.shade600,
+                onTap: () => _showEmergencyGuides(context),
+                onLongPress: () => _showQuickDisasterTips(context),
               ),
 
               // Communication Tools
@@ -333,6 +357,8 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
           ),
         ),
       ),
+        );
+      },
     );
   }
 
@@ -373,7 +399,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Emergency Shelters',
+                          LocalizationService.translate(LocalizationService.emergencyDialogTitle),
                           style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -423,11 +449,11 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                           ),
                           SizedBox(height: 2.h),
                           Text(
-                            'No shelters found',
+                            LocalizationService.translate(LocalizationService.noSheltersFound),
                             style: AppTheme.lightTheme.textTheme.titleMedium,
                           ),
                           Text(
-                            'Enable location for better results',
+                            LocalizationService.translate(LocalizationService.enableLocationForBetter),
                             style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
                               color: AppTheme.lightTheme.colorScheme.onSurface.withValues(alpha: 0.7),
                             ),
@@ -607,7 +633,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                                   color: AppTheme.lightTheme.primaryColor,
                                   size: 4.w,
                                 ),
-                                label: Text('Navigate'),
+                                label: Text(LocalizationService.translate(LocalizationService.navigate)),
                               ),
                             ),
                             SizedBox(width: 2.w),
@@ -620,7 +646,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                                   color: Colors.white,
                                   size: 4.w,
                                 ),
-                                label: Text('Call'),
+                                label: Text(LocalizationService.translate(LocalizationService.call)),
                               ),
                             ),
                           ],
@@ -670,7 +696,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                   ),
                   SizedBox(width: 3.w),
                   Text(
-                    'First Aid Guide',
+                    LocalizationService.translate(LocalizationService.firstAidGuide),
                     style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -817,7 +843,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
               ),
             ),
             Text(
-              'Advanced Options',
+              LocalizationService.translate(LocalizationService.advancedOptions),
               style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -829,8 +855,8 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                 color: AppTheme.lightTheme.primaryColor,
                 size: 6.w,
               ),
-              title: Text('Interactive Map'),
-              subtitle: Text('View disaster zones and evacuation routes'),
+              title: Text(LocalizationService.translate(LocalizationService.interactiveMap)),
+              subtitle: Text(LocalizationService.translate(LocalizationService.interactiveMapDesc)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/interactive-map-screen');
@@ -842,8 +868,8 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                 color: AppTheme.secondaryLight,
                 size: 6.w,
               ),
-              title: Text('Report Incident'),
-              subtitle: Text('Report emergency situations or resource needs'),
+              title: Text(LocalizationService.translate(LocalizationService.reportIncident)),
+              subtitle: Text(LocalizationService.translate(LocalizationService.reportIncidentDesc)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/incident-reporting-screen');
@@ -855,8 +881,8 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                 color: AppTheme.successLight,
                 size: 6.w,
               ),
-              title: Text('Return to Dashboard'),
-              subtitle: Text('Go back to main emergency dashboard'),
+              title: Text(LocalizationService.translate(LocalizationService.returnToDashboard)),
+              subtitle: Text(LocalizationService.translate(LocalizationService.returnToDashboardDesc)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/home-dashboard-screen');
@@ -1067,5 +1093,800 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
         fontSize: 16.0,
       );
     }
+  }
+
+  void _navigateToSafetyInstructions(BuildContext context) {
+    Navigator.pushNamed(context, '/disaster-safety-screen');
+  }
+
+  void _showQuickSafetyTips(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: 70.h,
+        decoration: BoxDecoration(
+          color: AppTheme.lightTheme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.all(4.w),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.shade400,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.flash_on,
+                    color: Colors.white,
+                    size: 6.w,
+                  ),
+                  SizedBox(width: 2.w),
+                  Text(
+                    'Quick Safety Tips',
+                    style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 6.w,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(4.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildQuickTipCard(
+                      'Universal Emergency Tips',
+                      Icons.emergency,
+                      Colors.red.shade600,
+                      [
+                        'Stay calm and assess the situation',
+                        'Follow official evacuation orders immediately',
+                        'Keep emergency contacts easily accessible',
+                        'Have emergency kit ready with water, food, medicines',
+                        'Identify multiple evacuation routes',
+                      ],
+                    ),
+                    SizedBox(height: 2.h),
+                    _buildQuickTipCard(
+                      'Communication',
+                      Icons.phone,
+                      Colors.blue.shade600,
+                      [
+                        'Keep phones charged and have power banks',
+                        'Use text messages when calls don\'t work',
+                        'Designate out-of-area emergency contact',
+                        'Know your local emergency services numbers',
+                        'Use social media to check in with family',
+                      ],
+                    ),
+                    SizedBox(height: 2.h),
+                    _buildQuickTipCard(
+                      'First Aid Basics',
+                      Icons.medical_services,
+                      Colors.green.shade600,
+                      [
+                        'Learn basic CPR and first aid',
+                        'Control bleeding with direct pressure',
+                        'Keep injured person warm and comfortable',
+                        'Don\'t move seriously injured victims',
+                        'Call for professional medical help immediately',
+                      ],
+                    ),
+                    SizedBox(height: 3.h),
+                    Center(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _navigateToSafetyInstructions(context);
+                        },
+                        icon: Icon(Icons.book, size: 5.w),
+                        label: Text(
+                          'View Complete Safety Guide',
+                          style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple.shade400,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickTipCard(String title, IconData icon, Color color, List<String> tips) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(3.w),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: color, size: 5.w),
+                SizedBox(width: 2.w),
+                Text(
+                  title,
+                  style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(3.w),
+            child: Column(
+              children: tips.map((tip) => Container(
+                margin: EdgeInsets.only(bottom: 1.h),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      margin: EdgeInsets.only(top: 0.5.h),
+                      width: 4.w,
+                      height: 4.w,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    SizedBox(width: 3.w),
+                    Expanded(
+                      child: Text(
+                        tip,
+                        style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textHighEmphasisLight,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEmergencyGuides(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: 85.h,
+        decoration: BoxDecoration(
+          color: AppTheme.lightTheme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Header with Language Selector
+            Container(
+              padding: EdgeInsets.all(4.w),
+              decoration: BoxDecoration(
+                color: Colors.teal.shade600,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.menu_book,
+                        color: Colors.white,
+                        size: 6.w,
+                      ),
+                      SizedBox(width: 2.w),
+                      Text(
+                        LocalizationService.translate(LocalizationService.disasterGuides),
+                        style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 6.w,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 2.h),
+                  // Language Selector
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.language,
+                        color: Colors.white,
+                        size: 5.w,
+                      ),
+                      SizedBox(width: 2.w),
+                      Text(
+                        LocalizationService.translate(LocalizationService.language),
+                        style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(width: 3.w),
+                      Expanded(
+                        child: ValueListenableBuilder<SupportedLanguage>(
+                          valueListenable: LocalizationService.languageNotifier,
+                          builder: (context, currentLang, child) {
+                            return DropdownButton<SupportedLanguage>(
+                              value: currentLang,
+                              dropdownColor: Colors.teal.shade700,
+                              style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                                color: Colors.white,
+                              ),
+                              underline: Container(
+                                height: 1,
+                                color: Colors.white,
+                              ),
+                              items: SupportedLanguage.values.map((lang) {
+                                return DropdownMenuItem(
+                                  value: lang,
+                                  child: Text(
+                                    lang.displayName,
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (SupportedLanguage? newLang) {
+                                if (newLang != null) {
+                                  LocalizationService.setLanguage(newLang);
+                                }
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            
+            // Content
+            Expanded(
+              child: ValueListenableBuilder<SupportedLanguage>(
+                valueListenable: LocalizationService.languageNotifier,
+                builder: (context, currentLang, child) {
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.all(4.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Cyclone Guide
+                        _buildDisasterGuideCard(
+                          LocalizationService.translate(DisasterSafetyContent.cycloneTitle),
+                          Icons.cyclone,
+                          AppTheme.primaryLight,
+                          LocalizationService.translate(DisasterSafetyContent.cycloneOverview),
+                          DisasterSafetyContent.cycloneBeforeSteps[currentLang.code] ?? DisasterSafetyContent.cycloneBeforeSteps['en'] ?? [],
+                          DisasterSafetyContent.cycloneDuringSteps[currentLang.code] ?? DisasterSafetyContent.cycloneDuringSteps['en'] ?? [],
+                          DisasterSafetyContent.cycloneAfterSteps[currentLang.code] ?? DisasterSafetyContent.cycloneAfterSteps['en'] ?? [],
+                        ),
+                        SizedBox(height: 3.h),
+                        
+                        // Flood Guide
+                        _buildDisasterGuideCard(
+                          LocalizationService.translate(DisasterSafetyContent.floodTitle),
+                          Icons.water,
+                          Colors.blue.shade600,
+                          LocalizationService.translate(DisasterSafetyContent.floodOverview),
+                          DisasterSafetyContent.floodBeforeSteps[currentLang.code] ?? DisasterSafetyContent.floodBeforeSteps['en'] ?? [],
+                          DisasterSafetyContent.floodDuringSteps[currentLang.code] ?? DisasterSafetyContent.floodDuringSteps['en'] ?? [],
+                          DisasterSafetyContent.floodAfterSteps[currentLang.code] ?? DisasterSafetyContent.floodAfterSteps['en'] ?? [],
+                        ),
+                        SizedBox(height: 3.h),
+                        
+                        // Forest Fire Guide
+                        _buildDisasterGuideCard(
+                          LocalizationService.translate(DisasterSafetyContent.forestFireTitle),
+                          Icons.local_fire_department,
+                          Colors.orange.shade700,
+                          LocalizationService.translate(DisasterSafetyContent.forestFireOverview),
+                          DisasterSafetyContent.forestFireBeforeSteps[currentLang.code] ?? DisasterSafetyContent.forestFireBeforeSteps['en'] ?? [],
+                          DisasterSafetyContent.forestFireDuringSteps[currentLang.code] ?? DisasterSafetyContent.forestFireDuringSteps['en'] ?? [],
+                          DisasterSafetyContent.forestFireAfterSteps[currentLang.code] ?? DisasterSafetyContent.forestFireAfterSteps['en'] ?? [],
+                        ),
+                        SizedBox(height: 3.h),
+                        
+                        // Earthquake Guide
+                        _buildDisasterGuideCard(
+                          LocalizationService.translate(DisasterSafetyContent.earthquakeTitle),
+                          Icons.landscape,
+                          Colors.brown.shade600,
+                          LocalizationService.translate(DisasterSafetyContent.earthquakeOverview),
+                          DisasterSafetyContent.earthquakeBeforeSteps[currentLang.code] ?? DisasterSafetyContent.earthquakeBeforeSteps['en'] ?? [],
+                          DisasterSafetyContent.earthquakeDuringSteps[currentLang.code] ?? DisasterSafetyContent.earthquakeDuringSteps['en'] ?? [],
+                          DisasterSafetyContent.earthquakeAfterSteps[currentLang.code] ?? DisasterSafetyContent.earthquakeAfterSteps['en'] ?? [],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showQuickDisasterTips(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: 70.h,
+        decoration: BoxDecoration(
+          color: AppTheme.lightTheme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.all(4.w),
+              decoration: BoxDecoration(
+                color: Colors.teal.shade600,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.bolt,
+                    color: Colors.white,
+                    size: 6.w,
+                  ),
+                  SizedBox(width: 2.w),
+                  Text(
+                    LocalizationService.translate(LocalizationService.quickDisasterTips),
+                    style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 6.w,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ValueListenableBuilder<SupportedLanguage>(
+                valueListenable: LocalizationService.languageNotifier,
+                builder: (context, currentLang, child) {
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.all(4.w),
+                    child: Column(
+                      children: [
+                        _buildQuickDisasterCard(
+                          LocalizationService.translate(DisasterSafetyContent.cycloneTitle),
+                          Icons.cyclone,
+                          AppTheme.primaryLight,
+                          DisasterSafetyContent.cycloneDos[currentLang.code] ?? [],
+                          DisasterSafetyContent.cycloneDonts[currentLang.code] ?? [],
+                        ),
+                        SizedBox(height: 2.h),
+                        _buildQuickDisasterCard(
+                          LocalizationService.translate(DisasterSafetyContent.floodTitle),
+                          Icons.water,
+                          Colors.blue.shade600,
+                          DisasterSafetyContent.floodDos[currentLang.code] ?? DisasterSafetyContent.floodDos['en'] ?? [],
+                          DisasterSafetyContent.floodDonts[currentLang.code] ?? DisasterSafetyContent.floodDonts['en'] ?? [],
+                        ),
+                        SizedBox(height: 2.h),
+                        _buildQuickDisasterCard(
+                          LocalizationService.translate(DisasterSafetyContent.forestFireTitle),
+                          Icons.local_fire_department,
+                          Colors.orange.shade700,
+                          DisasterSafetyContent.forestFireDos[currentLang.code] ?? DisasterSafetyContent.forestFireDos['en'] ?? [],
+                          DisasterSafetyContent.forestFireDonts[currentLang.code] ?? DisasterSafetyContent.forestFireDonts['en'] ?? [],
+                        ),
+                        SizedBox(height: 2.h),
+                        _buildQuickDisasterCard(
+                          LocalizationService.translate(DisasterSafetyContent.earthquakeTitle),
+                          Icons.landscape,
+                          Colors.brown.shade600,
+                          DisasterSafetyContent.earthquakeDos[currentLang.code] ?? DisasterSafetyContent.earthquakeDos['en'] ?? [],
+                          DisasterSafetyContent.earthquakeDonts[currentLang.code] ?? DisasterSafetyContent.earthquakeDonts['en'] ?? [],
+                        ),
+                        SizedBox(height: 3.h),
+                        Center(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _showEmergencyGuides(context);
+                            },
+                            icon: Icon(Icons.menu_book, size: 5.w),
+                            label: Text(
+                              LocalizationService.translate(LocalizationService.viewCompleteGuides),
+                              style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.teal.shade600,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDisasterGuideCard(String title, IconData icon, Color color, String overview, List<String> beforeSteps, List<String> duringSteps, List<String> afterSteps) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: EdgeInsets.all(3.w),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: color, size: 6.w),
+                SizedBox(width: 2.w),
+                Text(
+                  title,
+                  style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Overview
+          Container(
+            padding: EdgeInsets.all(3.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  LocalizationService.translate(LocalizationService.overview),
+                  style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                SizedBox(height: 1.h),
+                Text(
+                  overview,
+                  style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                    height: 1.5,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                
+                // Before, During, After sections in horizontal layout
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildStepsSection(
+                        '${LocalizationService.translate(LocalizationService.before)} $title',
+                        beforeSteps,
+                        Colors.blue.shade600,
+                      ),
+                    ),
+                    SizedBox(width: 2.w),
+                    Expanded(
+                      child: _buildStepsSection(
+                        '${LocalizationService.translate(LocalizationService.during)} $title',
+                        duringSteps,
+                        Colors.orange.shade600,
+                      ),
+                    ),
+                    SizedBox(width: 2.w),
+                    Expanded(
+                      child: _buildStepsSection(
+                        '${LocalizationService.translate(LocalizationService.after)} $title',
+                        afterSteps,
+                        Colors.green.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepsSection(String title, List<String> steps, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: AppTheme.lightTheme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        SizedBox(height: 1.h),
+        ...steps.take(3).map((step) => Container(
+          margin: EdgeInsets.only(bottom: 0.5.h),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: EdgeInsets.only(top: 0.3.h),
+                width: 3.w,
+                height: 3.w,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(width: 1.w),
+              Expanded(
+                child: Text(
+                  step,
+                  style: AppTheme.lightTheme.textTheme.bodySmall?.copyWith(
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        )),
+        if (steps.length > 3)
+          Text(
+            '...${LocalizationService.translate(LocalizationService.andMore)} ${steps.length - 3} ${LocalizationService.translate(LocalizationService.more)}',
+            style: AppTheme.lightTheme.textTheme.bodySmall?.copyWith(
+              color: color,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildQuickDisasterCard(String disaster, IconData icon, Color color, List<String> dos, List<String> donts) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: EdgeInsets.all(3.w),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: color, size: 5.w),
+                SizedBox(width: 2.w),
+                Text(
+                  disaster,
+                  style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 2.w, vertical: 0.5.h),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    LocalizationService.translate(LocalizationService.quickGuide),
+                    style: AppTheme.lightTheme.textTheme.bodySmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Content
+          Container(
+            padding: EdgeInsets.all(3.w),
+            child: Row(
+              children: [
+                // Do's Section
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green.shade600, size: 4.w),
+                          SizedBox(width: 1.w),
+                          Text(
+                            LocalizationService.translate(LocalizationService.dos),
+                            style: AppTheme.lightTheme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 1.h),
+                      ...dos.map((item) => _buildQuickItem(item, Colors.green.shade600, Icons.check)),
+                    ],
+                  ),
+                ),
+                
+                // Divider
+                Container(
+                  width: 1,
+                  height: 15.h,
+                  color: Colors.grey.shade300,
+                  margin: EdgeInsets.symmetric(horizontal: 2.w),
+                ),
+                
+                // Don'ts Section
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.cancel, color: Colors.red.shade600, size: 4.w),
+                          SizedBox(width: 1.w),
+                          Text(
+                            LocalizationService.translate(LocalizationService.donts),
+                            style: AppTheme.lightTheme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 1.h),
+                      ...donts.map((item) => _buildQuickItem(item, Colors.red.shade600, Icons.close)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickItem(String text, Color color, IconData icon) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 0.8.h),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: EdgeInsets.only(top: 0.2.h),
+            child: Icon(
+              icon,
+              color: color,
+              size: 3.w,
+            ),
+          ),
+          SizedBox(width: 1.5.w),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTheme.lightTheme.textTheme.bodySmall?.copyWith(
+                color: AppTheme.textHighEmphasisLight,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

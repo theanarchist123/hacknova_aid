@@ -10,6 +10,7 @@ import '../presentation/ocr_screen/ocr_screen.dart';
 import '../presentation/bluetooth_sos_screen/bluetooth_sos_screen.dart';
 import '../presentation/speech_qna_screen/speech_qna_screen.dart';
 import '../presentation/ocr_summarizer_clean.dart';
+import '../presentation/disaster_safety_screen/disaster_safety_screen.dart';
 
 class AppRoutes {
   // TODO: Add your routes here
@@ -25,6 +26,7 @@ class AppRoutes {
   static const String ocrSummarizer = '/ocr-summarizer-screen';
   static const String bluetoothSOS = '/bluetooth-sos-screen';
   static const String speechQna = '/speech-qna-screen';
+  static const String disasterSafety = '/disaster-safety-screen';
 
   static Map<String, WidgetBuilder> routes = {
     initial: (context) => const SplashScreen(),
@@ -46,6 +48,7 @@ class AppRoutes {
     ocrSummarizer: (context) => const OCRSummarizerPageSimple(),
     bluetoothSOS: (context) => const BluetoothSosScreen(),
     speechQna: (context) => const SpeechQnaScreen(),
+    disasterSafety: (context) => const DisasterSafetyScreen(),
     // TODO: Add your other routes here
   };
 }
