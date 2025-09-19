@@ -4,8 +4,8 @@ import 'package:sizer/sizer.dart';
 import 'package:provider/provider.dart';
 
 import 'core/app_export.dart';
-import 'core/services/native_bluetooth_service.dart';
-import 'routes/app_routes.dart';
+import 'core/services/disaster_bluetooth_service_new.dart';
+import 'routes/app_routes_new.dart';
 import 'widgets/custom_error_widget.dart';
 
 void main() async {
@@ -45,7 +45,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => NativeBluetoothService()),
+        ChangeNotifierProvider(create: (_) => DisasterBluetoothService()),
       ],
       child: Sizer(builder: (context, orientation, screenType) {
         return MaterialApp(

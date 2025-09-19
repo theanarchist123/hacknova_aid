@@ -107,23 +107,22 @@ class _QuickActionCardWidgetState extends State<QuickActionCardWidget> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Container(
-            width: double.infinity,
-            height: 20.h,
-            padding: EdgeInsets.all(4.w),
+          child: Padding(
+            padding: EdgeInsets.all(3.w),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: EdgeInsets.all(3.w),
+                      padding: EdgeInsets.all(2.5.w),
                       decoration: BoxDecoration(
                         color: widget.cardColor != null
-                            ? Colors.white.withValues(alpha: 0.2)
+                            ? Colors.white.withOpacity(0.2)
                             : AppTheme.lightTheme.colorScheme.primary
-                                .withValues(alpha: 0.1),
+                                .withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: CustomIconWidget(
@@ -131,7 +130,7 @@ class _QuickActionCardWidgetState extends State<QuickActionCardWidget> {
                         color: widget.cardColor != null
                             ? Colors.white
                             : AppTheme.lightTheme.colorScheme.primary,
-                        size: 8.w,
+                        size: 6.w,
                       ),
                     ),
                     widget.activityCount > 0
@@ -156,29 +155,33 @@ class _QuickActionCardWidgetState extends State<QuickActionCardWidget> {
                         : const SizedBox.shrink(),
                   ],
                 ),
-                const Spacer(),
-                Text(
-                  widget.title,
-                  style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: widget.cardColor != null
-                        ? Colors.white
-                        : AppTheme.lightTheme.colorScheme.onSurface,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: 1.h),
-                Text(
-                  widget.statusText,
-                  style: AppTheme.lightTheme.textTheme.bodySmall?.copyWith(
-                    color: widget.cardColor != null
-                        ? Colors.white.withValues(alpha: 0.8)
-                        : AppTheme.lightTheme.colorScheme.onSurface
-                            .withValues(alpha: 0.7),
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: widget.cardColor != null
+                            ? Colors.white
+                            : AppTheme.lightTheme.colorScheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 0.5.h),
+                    Text(
+                      widget.statusText,
+                      style: AppTheme.lightTheme.textTheme.bodySmall?.copyWith(
+                        color: widget.cardColor != null
+                            ? Colors.white.withOpacity(0.8)
+                            : AppTheme.lightTheme.colorScheme.onSurface
+                                .withOpacity(0.7),
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ],
             ),

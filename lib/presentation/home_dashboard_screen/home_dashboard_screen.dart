@@ -207,6 +207,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       case 'incident':
         Navigator.pushNamed(context, '/interactive-map-screen');
         break;
+      case 'ble-test':
+        Navigator.pushNamed(context, '/simple-ble-test');
+        break;
+      case 'system-bluetooth':
+        Navigator.pushNamed(context, '/system-bluetooth');
+        break;
+      case 'bluetooth-classic-messenger':
+        Navigator.pushNamed(context, '/bluetooth-classic-messenger');
+        break;
     }
   }
 
@@ -222,7 +231,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
         break;
       case 1:
         // Bluetooth Chat tab - navigate to Bluetooth SOS screen
-        Navigator.pushNamed(context, '/bluetooth-sos-screen');
+        Navigator.pushNamed(context, AppRoutes.bluetoothClassicMessenger);
         break;
       case 2:
         // Already on Home - do nothing
@@ -292,6 +301,45 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             'onTap': () => _handleQuickAction('incident'),
           },
         ];
+      case 'ble-test':
+        return [
+          {
+            'title': 'Test BLE',
+            'icon': 'bluetooth_searching',
+            'onTap': () => _handleQuickAction('ble-test'),
+          },
+          {
+            'title': 'Send Message',
+            'icon': 'send',
+            'onTap': () => _handleQuickAction('ble-test'),
+          },
+        ];
+      case 'system-bluetooth':
+        return [
+          {
+            'title': 'Pair Device',
+            'icon': 'bluetooth_connected',
+            'onTap': () => _handleQuickAction('system-bluetooth'),
+          },
+          {
+            'title': 'Send File',
+            'icon': 'file_upload',
+            'onTap': () => _handleQuickAction('system-bluetooth'),
+          },
+        ];
+      case 'bluetooth-classic-messenger':
+        return [
+          {
+            'title': 'Send SOS',
+            'icon': 'emergency',
+            'onTap': () => _handleQuickAction('bluetooth-classic-messenger'),
+          },
+          {
+            'title': 'Connect Device',
+            'icon': 'bluetooth',
+            'onTap': () => _handleQuickAction('bluetooth-classic-messenger'),
+          },
+        ];
       default:
         return [];
     }
@@ -342,7 +390,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
               // Quick Action Cards
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 0.5.h),
+                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -353,54 +401,85 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(height: 0.5.h),
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 2.w,
-                        mainAxisSpacing: 0.5.h,
-                        childAspectRatio: 1.5,
-                        children: [
-                          QuickActionCardWidget(
-                            title: 'Prediction',
-                            iconName: 'trending_up',
-                            statusText: _isLoadingAlerts 
-                              ? 'Loading alerts...' 
-                              : '${_recentAlerts.length} active alerts',
-                            activityCount: _recentAlerts.length,
-                            onTap: () => _handleQuickAction('prediction'),
-                            contextualActions:
-                                _getContextualActions('prediction'),
-                          ),
-                          QuickActionCardWidget(
-                            title: 'Preparedness',
-                            iconName: 'checklist',
-                            statusText: 'Emergency kit ready',
-                            activityCount: 0,
-                            onTap: () => _handleQuickAction('preparedness'),
-                            contextualActions:
-                                _getContextualActions('preparedness'),
-                          ),
-                          QuickActionCardWidget(
-                            title: 'Response',
-                            iconName: 'emergency',
-                            statusText: 'Services available',
-                            activityCount: 1,
-                            onTap: () => _handleQuickAction('response'),
-                            contextualActions:
-                                _getContextualActions('response'),
-                          ),
-                          QuickActionCardWidget(
-                            title: 'Incident Reporting',
-                            iconName: 'report_problem',
-                            statusText: 'Report emergencies',
-                            activityCount: 0,
-                            onTap: () => _handleQuickAction('incident'),
-                            contextualActions:
-                                _getContextualActions('incident'),
-                          ),
-                        ],
+                      SizedBox(height: 2.h),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          return GridView.count(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 3.w,
+                            mainAxisSpacing: 2.h,
+                            childAspectRatio: (constraints.maxWidth / 2 - 1.5.w) / ((constraints.maxWidth / 2 - 1.5.w) * 0.7),
+                            children: [
+                              QuickActionCardWidget(
+                                title: 'Prediction',
+                                iconName: 'trending_up',
+                                statusText: _isLoadingAlerts 
+                                  ? 'Loading alerts...' 
+                                  : '${_recentAlerts.length} active alerts',
+                                activityCount: _recentAlerts.length,
+                                onTap: () => _handleQuickAction('prediction'),
+                                contextualActions:
+                                    _getContextualActions('prediction'),
+                              ),
+                              QuickActionCardWidget(
+                                title: 'Preparedness',
+                                iconName: 'checklist',
+                                statusText: 'Emergency kit ready',
+                                activityCount: 0,
+                                onTap: () => _handleQuickAction('preparedness'),
+                                contextualActions:
+                                    _getContextualActions('preparedness'),
+                              ),
+                              QuickActionCardWidget(
+                                title: 'Response',
+                                iconName: 'emergency',
+                                statusText: 'Services available',
+                                activityCount: 1,
+                                onTap: () => _handleQuickAction('response'),
+                                contextualActions:
+                                    _getContextualActions('response'),
+                              ),
+                              QuickActionCardWidget(
+                                title: 'Incident Reporting',
+                                iconName: 'report_problem',
+                                statusText: 'Report emergencies',
+                                activityCount: 0,
+                                onTap: () => _handleQuickAction('incident'),
+                                contextualActions:
+                                    _getContextualActions('incident'),
+                              ),
+                              QuickActionCardWidget(
+                                title: 'BLE Test',
+                                iconName: 'bluetooth',
+                                statusText: 'Test BLE messaging',
+                                activityCount: 0,
+                                onTap: () => _handleQuickAction('ble-test'),
+                                contextualActions:
+                                    _getContextualActions('ble-test'),
+                              ),
+                              QuickActionCardWidget(
+                                title: 'System Bluetooth',
+                                iconName: 'bluetooth_connected',
+                                statusText: 'Real device pairing',
+                                activityCount: 0,
+                                onTap: () => _handleQuickAction('system-bluetooth'),
+                                contextualActions:
+                                    _getContextualActions('system-bluetooth'),
+                              ),
+                              QuickActionCardWidget(
+                                title: 'Emergency Messenger',
+                                iconName: 'message',
+                                statusText: 'Bluetooth Classic messaging',
+                                activityCount: 0,
+                                onTap: () => _handleQuickAction('bluetooth-classic-messenger'),
+                                contextualActions:
+                                    _getContextualActions('bluetooth-classic-messenger'),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -409,12 +488,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
               // Recent Alerts Section
               SliverToBoxAdapter(
-                child: RecentAlertsWidget(alerts: _recentAlerts),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4.w),
+                  child: RecentAlertsWidget(alerts: _recentAlerts),
+                ),
               ),
 
-              // Bottom padding
-              SliverToBoxAdapter(
-                child: SizedBox(height: 1.h),
+              // Bottom padding to prevent overlap with bottom navigation
+              SliverPadding(
+                padding: EdgeInsets.only(bottom: kBottomNavigationBarHeight + 2.h),
               ),
             ],
           ),
@@ -426,7 +508,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: Colors.black.withOpacity(0.1),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
@@ -439,7 +521,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
           backgroundColor: AppTheme.lightTheme.colorScheme.surface,
           selectedItemColor: AppTheme.lightTheme.colorScheme.primary,
           unselectedItemColor:
-              AppTheme.lightTheme.colorScheme.onSurface.withValues(alpha: 0.6),
+              AppTheme.lightTheme.colorScheme.onSurface.withOpacity(0.6),
           selectedLabelStyle:
               AppTheme.lightTheme.textTheme.labelSmall?.copyWith(
             fontWeight: FontWeight.w600,
@@ -452,7 +534,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                 color: _selectedBottomNavIndex == 0
                     ? AppTheme.lightTheme.colorScheme.primary
                     : AppTheme.lightTheme.colorScheme.onSurface
-                        .withValues(alpha: 0.6),
+                        .withOpacity(0.6),
                 size: 6.w,
               ),
               label: 'OCR',
@@ -463,7 +545,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                 color: _selectedBottomNavIndex == 1
                     ? AppTheme.lightTheme.colorScheme.primary
                     : AppTheme.lightTheme.colorScheme.onSurface
-                        .withValues(alpha: 0.6),
+                        .withOpacity(0.6),
                 size: 6.w,
               ),
               label: 'Bluetooth',
@@ -474,7 +556,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                 color: _selectedBottomNavIndex == 2
                     ? AppTheme.lightTheme.colorScheme.primary
                     : AppTheme.lightTheme.colorScheme.onSurface
-                        .withValues(alpha: 0.6),
+                        .withOpacity(0.6),
                 size: 6.w,
               ),
               label: 'Home',
@@ -485,7 +567,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                 color: _selectedBottomNavIndex == 3
                     ? AppTheme.lightTheme.colorScheme.primary
                     : AppTheme.lightTheme.colorScheme.onSurface
-                        .withValues(alpha: 0.6),
+                        .withOpacity(0.6),
                 size: 6.w,
               ),
               label: 'Speech Q&A',
@@ -496,7 +578,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                 color: _selectedBottomNavIndex == 4
                     ? AppTheme.lightTheme.colorScheme.primary
                     : AppTheme.lightTheme.colorScheme.onSurface
-                        .withValues(alpha: 0.6),
+                        .withOpacity(0.6),
                 size: 6.w,
               ),
               label: 'Response',

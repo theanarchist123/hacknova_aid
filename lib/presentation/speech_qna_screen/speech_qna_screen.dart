@@ -210,7 +210,7 @@ class _SpeechQnaScreenState extends State<SpeechQnaScreen>
         break;
       case 1:
         // Bluetooth SOS tab
-        Navigator.pushNamed(context, AppRoutes.bluetoothSOS);
+                                  Navigator.pushNamed(context, AppRoutes.bluetoothClassicMessenger);
         break;
       case 2:
         // Home tab

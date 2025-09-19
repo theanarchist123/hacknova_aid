@@ -1,5 +1,3 @@
-import 'package:uuid/uuid.dart';
-
 /// Enum for different types of messages in the disaster relief system
 enum MessageType {
   regular,
@@ -37,7 +35,7 @@ class DisasterMessage {
     DateTime? timestamp,
     this.status = MessageStatus.sending,
     this.metadata,
-  }) : id = id ?? const Uuid().v4(),
+  }) : id = id ?? DateTime.now().millisecondsSinceEpoch.toString(),
        timestamp = timestamp ?? DateTime.now();
 
   /// Create a copy of the message with updated fields

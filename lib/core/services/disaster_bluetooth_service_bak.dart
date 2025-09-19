@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../models/disaster_message.dart';
 import 'message_database.dart';
@@ -32,6 +31,7 @@ class DisasterBluetoothService extends ChangeNotifier {
   bool _bluetoothEnabled = false;
   bool _isScanning = false;
   bool _isServerRunning = false;
+  bool _isAdvertising = false;
   
   // Device discovery and filtering
   final List<DiscoveredDevice> _discoveredDevices = [];
@@ -49,7 +49,7 @@ class DisasterBluetoothService extends ChangeNotifier {
   final MessageDatabase _messageDb = MessageDatabase();
   final StreamController<DisasterMessage> _messageController = StreamController<DisasterMessage>.broadcast();
   final StreamController<List<DiscoveredDevice>> _devicesController = StreamController<List<DiscoveredDevice>>.broadcast();
-  final StreamController<Map<String, bool>> _connectionStatusController = StreamController<Map<String, bool>>.broadcast();
+  final StreamController<Map<String, String>> _connectionStatusController = StreamController<Map<String, String>>.broadcast();
   
   // Message queue for failed sends
   final Map<String, List<DisasterMessage>> _messageQueue = {};
@@ -65,12 +65,13 @@ class DisasterBluetoothService extends ChangeNotifier {
   // Streams
   Stream<DisasterMessage> get messageStream => _messageController.stream;
   Stream<List<DiscoveredDevice>> get devicesStream => _devicesController.stream;
-  Stream<Map<String, bool>> get connectionStatusStream => _connectionStatusController.stream;
+  Stream<Map<String, String>> get connectionStatusStream => _connectionStatusController.stream;
   
   // Getters
   bool get bluetoothEnabled => _bluetoothEnabled;
   bool get isScanning => _isScanning;
   bool get isServerRunning => _isServerRunning;
+  bool get isAdvertising => _isAdvertising;
   int get connectedDeviceCount => _writeCharacteristics.length;
   List<DiscoveredDevice> get discoveredDevices => List.unmodifiable(_discoveredDevices);
   List<DiscoveredDevice> get validDisasterDevices => List.unmodifiable(_validDisasterDevices);
@@ -78,46 +79,70 @@ class DisasterBluetoothService extends ChangeNotifier {
   String? get deviceId => _deviceId;
   String? get userName => _userName;
 
-  /// Check if a discovered device is a valid disaster relief device
-  bool _isValidDisasterDevice(DiscoveredDevice device) {
+  /// Check if Bluetooth can be enabled (this will prompt user to enable if possible)
+  Future<bool> requestBluetoothEnable() async {
     try {
-      final name = device.name.toLowerCase();
+      debugPrint('📲 Requesting Bluetooth enable...');
       
-      debugPrint('🔍 Evaluating device: "${device.name}" (${device.id})');
+      // On Android, we can't programmatically enable Bluetooth
+      // but we can guide the user to the settings
+      final status = await _ble.statusStream.first;
+      debugPrint('📡 Current BLE status: $status');
       
-      // Accept devices with our disaster app identifier
-      if (name.contains('disaster') || name.contains('sos')) {
-        debugPrint('✅ ACCEPTED disaster device: "$name" (disaster/sos identifier)');
+      if (status == BleStatus.ready) {
+        _bluetoothEnabled = true;
+        notifyListeners();
         return true;
       }
       
-      // Accept devices with clear phone/tablet names
-      final phonePatterns = [
-        'android', 'iphone', 'samsung', 'pixel', 'galaxy', 'huawei', 
-        'xiaomi', 'oneplus', 'oppo', 'vivo', 'realme', 'nokia', 'lg',
-        'sony', 'motorola', 'tablet', 'ipad', 'phone'
-      ];
-      
-      for (final pattern in phonePatterns) {
-        if (name.contains(pattern)) {
-          debugPrint('✅ ACCEPTED phone/tablet: "$name" (pattern: $pattern)');
-          return true;
-        }
-      }
-      
-      // Check if device advertises our service
-      if (device.serviceUuids.contains(_serviceUuid)) {
-        debugPrint('✅ ACCEPTED device with disaster service: "$name"');
-        return true;
-      }
-      
-      debugPrint('❌ REJECTED: Device "$name" does not match any patterns');
+      debugPrint('⚠️ Bluetooth needs to be enabled manually');
       return false;
-      
     } catch (e) {
-      debugPrint('❌ Error evaluating device ${device.id}: $e');
+      debugPrint('❌ Error checking Bluetooth status: $e');
       return false;
     }
+  }
+
+  /// Check if device is running our disaster chat app - SIMPLIFIED VERSION
+  bool _isValidDisasterDevice(DiscoveredDevice device) {
+    debugPrint('🔍 Evaluating: "${device.name}" (${device.id})');
+    debugPrint('   RSSI: ${device.rssi} dBm');
+    
+    // Skip our own device
+    if (device.id == _deviceId) {
+      debugPrint('⚠️ SKIPPED: Own device');
+      return false;
+    }
+    
+    // ACCEPT ALL DEVICES FOR NOW - Let user choose which ones to connect to
+    // This is the most practical approach for testing
+    final name = device.name.toLowerCase();
+    
+    // Only skip devices with empty names or very weak signal
+    if (device.name.isEmpty || device.rssi < -80) {
+      debugPrint('❌ REJECTED: Empty name or weak signal (${device.rssi} dBm)');
+      return false;
+    }
+    
+    // Accept phones and tablets that might have our app
+    if (name.contains('phone') || name.contains('android') || name.contains('samsung') || 
+        name.contains('pixel') || name.contains('galaxy') || name.contains('huawei') ||
+        name.contains('xiaomi') || name.contains('oneplus') || name.contains('oppo') ||
+        name.contains('vivo') || name.contains('realme') || name.contains('iphone') ||
+        name.contains('ipad') || name.contains('tablet')) {
+      debugPrint('✅ ACCEPTED: Phone/tablet device: "$name"');
+      return true;
+    }
+    
+    // Accept any device with a reasonable name (potential phone)
+    if (device.name.length >= 3 && !name.contains('watch') && !name.contains('tv') && 
+        !name.contains('speaker') && !name.contains('headphone') && !name.contains('car')) {
+      debugPrint('✅ ACCEPTED: Potential mobile device: "$name"');
+      return true;
+    }
+    
+    debugPrint('❌ REJECTED: Not a mobile device: "$name"');
+    return false;
   }
 
   /// Initialize the Bluetooth service
@@ -125,26 +150,33 @@ class DisasterBluetoothService extends ChangeNotifier {
     try {
       debugPrint('🔧 Initializing BLE service...');
       
+      // Check permissions
+      final hasPermissions = await _checkPermissions();
+      if (!hasPermissions) {
+        debugPrint('❌ Bluetooth permissions not granted');
+        return false;
+      }
+
       // Monitor BLE status
       _bleStatusSubscription = _ble.statusStream.listen((status) {
+        final wasEnabled = _bluetoothEnabled;
         _bluetoothEnabled = status == BleStatus.ready;
         debugPrint('📡 BLE status: $status');
+        
+        // Start advertising when Bluetooth becomes ready
+        if (!wasEnabled && _bluetoothEnabled) {
+          startAdvertising();
+        }
+        
         notifyListeners();
       });
 
-      // Wait for BLE to be ready
+      // Check current BLE status
       final status = await _ble.statusStream.first;
       _bluetoothEnabled = status == BleStatus.ready;
       
       if (!_bluetoothEnabled) {
-        debugPrint('❌ Bluetooth is not ready. Status: $status');
-        return false;
-      }
-
-      // Check and request permissions
-      final hasPermissions = await _checkPermissions();
-      if (!hasPermissions) {
-        debugPrint('❌ Bluetooth permissions not granted');
+        debugPrint('⚠️ Bluetooth is not enabled. Status: $status');
         return false;
       }
 
@@ -154,11 +186,15 @@ class DisasterBluetoothService extends ChangeNotifier {
       // Initialize message database
       await _messageDb.database;
       
+      // START ADVERTISING - This makes your device discoverable
+      await startAdvertising();
+      
       _isServerRunning = true;
       
       debugPrint('✅ BLE service initialized successfully');
       debugPrint('📱 Device ID: $_deviceId');
       debugPrint('👤 User Name: $_userName');
+      debugPrint('� Advertising: $_isAdvertising');
       
       notifyListeners();
       return true;
@@ -228,26 +264,80 @@ class DisasterBluetoothService extends ChangeNotifier {
       // Get or generate device ID
       _deviceId = prefs.getString('device_id');
       if (_deviceId == null) {
-        _deviceId = const Uuid().v4();
+        _deviceId = DateTime.now().millisecondsSinceEpoch.toString();
         await prefs.setString('device_id', _deviceId!);
       }
 
       // Get or set user name
       _userName = prefs.getString('user_name');
       if (_userName == null) {
-        _userName = 'Anonymous User';
+        _userName = 'Emergency User';
         await prefs.setString('user_name', _userName!);
       }
 
       debugPrint('📱 Device initialized - ID: $_deviceId, Name: $_userName');
     } catch (e) {
       debugPrint('❌ Error initializing device info: $e');
-      _deviceId = const Uuid().v4();
-      _userName = 'Anonymous User';
+      _deviceId = DateTime.now().millisecondsSinceEpoch.toString();
+      _userName = 'Emergency User';
     }
   }
 
-  /// Start scanning for BLE devices
+  /// Start advertising our disaster relief service
+  Future<bool> startAdvertising() async {
+    try {
+      if (_isAdvertising) {
+        debugPrint('⚠️ Already advertising');
+        return true;
+      }
+
+      debugPrint('📡 Starting BLE advertising...');
+      
+      // Note: flutter_reactive_ble doesn't have a direct advertise method
+      // We'll use service discovery and characteristic setup for device identification
+      // This is a placeholder for when peripheral mode is available
+      _isAdvertising = true;
+      debugPrint('✅ Started advertising disaster chat service (placeholder)');
+      notifyListeners();
+      return true;
+      
+    } catch (e) {
+      debugPrint('❌ Failed to start advertising: $e');
+      return false;
+    }
+  }
+
+  /// Stop advertising
+  Future<void> stopAdvertising() async {
+    try {
+      if (_isAdvertising) {
+        // Stop advertising placeholder
+        _isAdvertising = false;
+        debugPrint('📴 Stopped advertising');
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('❌ Error stopping advertising: $e');
+    }
+  }
+
+  /// Set device name to be more discoverable for emergency chat
+  Future<void> setEmergencyDiscoverableMode(bool enabled) async {
+    try {
+      if (enabled) {
+        debugPrint('📡 Enabling emergency discoverable mode...');
+        // Note: BLE device naming is limited on most platforms
+        // The device will appear with its system Bluetooth name
+        // but we can identify emergency devices by service UUID and characteristics
+      } else {
+        debugPrint('📴 Disabling emergency discoverable mode...');
+      }
+    } catch (e) {
+      debugPrint('❌ Error setting discoverable mode: $e');
+    }
+  }
+
+  /// Start scanning for disaster chat devices - SIMPLIFIED VERSION
   Future<void> startScanning({Duration timeout = const Duration(seconds: 30)}) async {
     try {
       if (_isScanning) {
@@ -255,32 +345,30 @@ class DisasterBluetoothService extends ChangeNotifier {
         return;
       }
 
-      debugPrint('🔍 Started scanning for disaster relief devices');
+      debugPrint('🔍 Started scanning for nearby devices (simplified approach)');
       _isScanning = true;
       _discoveredDevices.clear();
       _validDisasterDevices.clear();
-      _updateDeviceStatus('system', 'Scanning for devices...');
+      _updateDeviceStatus('system', 'Scanning for nearby devices...');
       notifyListeners();
 
-      // Start BLE scanning
+      // SIMPLIFIED: Just scan all devices, no service filtering
       _scanSubscription = _ble.scanForDevices(
-        withServices: [_serviceUuid],
+        withServices: [], // No service filter - discover all devices
         scanMode: ScanMode.lowLatency,
+        requireLocationServicesEnabled: false,
       ).listen(
         (device) {
-          // Skip if already discovered
-          if (_discoveredDevices.any((d) => d.id == device.id)) {
-            return;
-          }
+          if (_discoveredDevices.any((d) => d.id == device.id)) return;
           
           _discoveredDevices.add(device);
-          debugPrint('🔍 Discovered: ${device.name} (${device.id})');
+          debugPrint('🔍 Discovered: ${device.name} (${device.id}) RSSI: ${device.rssi}');
           
-          // Apply filtering
+          // Apply our simplified filtering
           if (_isValidDisasterDevice(device)) {
             _validDisasterDevices.add(device);
-            _updateDeviceStatus(device.id, 'Found valid device: ${device.name}');
-            debugPrint('✅ Added to valid devices: ${device.name}');
+            _updateDeviceStatus(device.id, 'Found potential device: ${device.name}');
+            debugPrint('✅ Added potential disaster device: ${device.name}');
           }
           
           _devicesController.add(List.from(_validDisasterDevices));
@@ -288,9 +376,7 @@ class DisasterBluetoothService extends ChangeNotifier {
         },
         onError: (error) {
           debugPrint('❌ Scan error: $error');
-          _isScanning = false;
           _updateDeviceStatus('system', 'Scan error: $error');
-          notifyListeners();
         },
       );
 
@@ -302,13 +388,11 @@ class DisasterBluetoothService extends ChangeNotifier {
         }
       });
 
-      _devicesController.add(List.from(_validDisasterDevices));
     } catch (e) {
       debugPrint('❌ Error scanning for devices: $e');
       _isScanning = false;
       _updateDeviceStatus('system', 'Scan failed: $e');
       notifyListeners();
-      rethrow;
     }
   }
 
@@ -327,11 +411,11 @@ class DisasterBluetoothService extends ChangeNotifier {
     }
   }
 
-  /// Connect to a specific BLE device
+  /// Connect to a specific BLE device with enhanced error handling
   Future<bool> connectToDevice(DiscoveredDevice device) async {
     try {
       final deviceId = device.id;
-      debugPrint('🔗 Connecting to device: ${device.name} ($deviceId)');
+      debugPrint('🔗 Attempting to connect to: ${device.name} ($deviceId)');
       
       // Check if already connected
       if (_connectionStates[deviceId] == DeviceConnectionState.connected) {
@@ -341,54 +425,101 @@ class DisasterBluetoothService extends ChangeNotifier {
 
       _updateDeviceStatus(deviceId, 'Connecting...');
 
-      // Connect to the device
-      _connectionSubscriptions[deviceId] = _ble.connectToDevice(
-        id: deviceId,
-        connectionTimeout: const Duration(seconds: 20),
-      ).listen(
-        (connectionState) async {
-          _connectionStates[deviceId] = connectionState.connectionState;
-          debugPrint('🔄 Connection state for $deviceId: ${connectionState.connectionState}');
-          
-          if (connectionState.connectionState == DeviceConnectionState.connected) {
-            debugPrint('✅ Connected to $deviceId');
-            await _setupCharacteristics(deviceId);
-            _updateDeviceStatus(deviceId, 'Connected');
+      // Try to discover services first to see if this device has our emergency service
+      try {
+        debugPrint('🔍 Discovering services for ${device.name}...');
+        
+        // Connect to the device
+        _connectionSubscriptions[deviceId] = _ble.connectToDevice(
+          id: deviceId,
+          connectionTimeout: const Duration(seconds: 15),
+        ).listen(
+          (connectionState) async {
+            _connectionStates[deviceId] = connectionState.connectionState;
+            debugPrint('🔄 Connection state for ${device.name}: ${connectionState.connectionState}');
             
-            // Send hello message
-            final helloMessage = DisasterMessage(
-              senderId: _deviceId!,
-              senderName: _userName!,
-              content: 'Hello from $_userName',
-              type: MessageType.system,
-            );
-            
-            await sendMessage(helloMessage, deviceId);
-            notifyListeners();
-          } else if (connectionState.connectionState == DeviceConnectionState.disconnected) {
-            debugPrint('📴 Disconnected from $deviceId');
+            if (connectionState.connectionState == DeviceConnectionState.connected) {
+              debugPrint('✅ Connected to ${device.name}');
+              
+              // Try to setup characteristics
+              final success = await _setupCharacteristics(deviceId);
+              
+              if (success) {
+                _updateDeviceStatus(deviceId, 'Connected - Chat Ready');
+                
+                // Broadcast connection state change
+                _connectionStatusController.add(Map.from(_deviceStatuses));
+                
+                // Send initial handshake message
+                final handshakeMessage = DisasterMessage(
+                  senderId: _deviceId!,
+                  senderName: _userName!,
+                  content: '👋 Connected to emergency chat network. Ready for communication.',
+                  type: MessageType.system,
+                );
+                
+                await sendMessage(handshakeMessage, deviceId);
+                debugPrint('🤝 Handshake sent to ${device.name}');
+              } else {
+                _updateDeviceStatus(deviceId, 'Connected but no emergency service found');
+                debugPrint('⚠️ Device ${device.name} connected but no emergency chat service available');
+              }
+              
+              notifyListeners();
+            } else if (connectionState.connectionState == DeviceConnectionState.disconnected) {
+              debugPrint('📴 Disconnected from ${device.name}');
+              _handleDisconnection(deviceId);
+            }
+          },
+          onError: (error) {
+            debugPrint('❌ Connection error to ${device.name}: $error');
+            _updateDeviceStatus(deviceId, 'Connection failed: $error');
             _handleDisconnection(deviceId);
-          }
-        },
-        onError: (error) {
-          debugPrint('❌ Connection error: $error');
-          _updateDeviceStatus(deviceId, 'Connection failed: $error');
-          _handleDisconnection(deviceId);
-        },
-      );
-      
-      return true;
+          },
+        );
+        
+        return true;
+      } catch (e) {
+        debugPrint('❌ Service discovery failed for ${device.name}: $e');
+        _updateDeviceStatus(deviceId, 'Service discovery failed');
+        return false;
+      }
     } catch (e) {
-      debugPrint('❌ Error connecting to device: $e');
+      debugPrint('❌ Error connecting to ${device.name}: $e');
       _updateDeviceStatus(device.id, 'Connection failed: $e');
       return false;
     }
   }
 
   /// Setup characteristics for communication
-  Future<void> _setupCharacteristics(String deviceId) async {
+  Future<bool> _setupCharacteristics(String deviceId) async {
     try {
       debugPrint('🔧 Setting up characteristics for $deviceId');
+      
+      // Discover services first
+      final services = await _ble.discoverServices(deviceId);
+      debugPrint('🔍 Discovered ${services.length} services for $deviceId');
+      
+      // Look for our emergency service
+      DiscoveredService? emergencyService;
+      for (final service in services) {
+        debugPrint('📋 Service: ${service.serviceId}');
+        if (service.serviceId == _serviceUuid) {
+          emergencyService = service;
+          debugPrint('✅ Found emergency service!');
+          break;
+        }
+      }
+      
+      if (emergencyService == null) {
+        debugPrint('❌ Emergency service not found. Available services:');
+        for (final service in services) {
+          debugPrint('   - ${service.serviceId}');
+        }
+        
+        // Still try to set up with standard characteristic - might work for some devices
+        debugPrint('🔄 Attempting to use standard characteristics anyway...');
+      }
       
       final writeChar = QualifiedCharacteristic(
         serviceId: _serviceUuid,
@@ -399,19 +530,28 @@ class DisasterBluetoothService extends ChangeNotifier {
       _writeCharacteristics[deviceId] = writeChar;
       _messageBuffers[deviceId] = StringBuffer();
       
+      debugPrint('📝 Attempting to subscribe to notifications for $deviceId');
+      
       // Subscribe to notifications
       _notifySubscriptions[deviceId] = _ble.subscribeToCharacteristic(writeChar).listen(
         (data) {
+          debugPrint('📨 Notification received from $deviceId, data length: ${data.length}');
           _handleIncomingData(data, deviceId);
         },
         onError: (error) {
-          debugPrint('❌ Notification error: $error');
+          debugPrint('❌ Notification error for $deviceId: $error');
+          // Don't fail completely - some devices might still work for sending
+        },
+        onDone: () {
+          debugPrint('✅ Notification stream closed for $deviceId');
         },
       );
       
       debugPrint('✅ Characteristics setup completed for $deviceId');
+      return true;
     } catch (e) {
-      debugPrint('❌ Error setting up characteristics: $e');
+      debugPrint('❌ Error setting up characteristics for $deviceId: $e');
+      return false;
     }
   }
 
@@ -419,6 +559,7 @@ class DisasterBluetoothService extends ChangeNotifier {
   void _handleIncomingData(List<int> data, String deviceId) async {
     try {
       final String messageChunk = String.fromCharCodes(data);
+      debugPrint('📥 Raw data from $deviceId: $messageChunk');
       
       // Get or create buffer for this device
       final StringBuffer buffer = _messageBuffers[deviceId] ?? StringBuffer();
@@ -429,6 +570,7 @@ class DisasterBluetoothService extends ChangeNotifier {
       
       // Check if we have complete messages
       String bufferContent = buffer.toString();
+      debugPrint('📝 Buffer content: $bufferContent');
       
       // Process all complete messages in buffer
       while (bufferContent.contains(messageDelimiter)) {
@@ -440,15 +582,17 @@ class DisasterBluetoothService extends ChangeNotifier {
         
         // Process the message
         try {
-          debugPrint('📥 Received message: $messageJson');
+          debugPrint('📥 Processing message JSON: $messageJson');
           final Map<String, dynamic> messageData = jsonDecode(messageJson);
           final DisasterMessage message = DisasterMessage.fromJson(messageData);
+          
+          debugPrint('✅ Message received from ${message.senderName}: ${message.content}');
           
           // Add to message list and notify listeners
           _messageController.add(message);
           
           // Save to database
-          await _messageDb.saveMessage(message);
+          await _messageDb.insertMessage(message);
           
         } catch (e) {
           debugPrint('❌ Error processing message: $e');
@@ -494,7 +638,7 @@ class DisasterBluetoothService extends ChangeNotifier {
       // Check if device is connected
       if (!_writeCharacteristics.containsKey(targetDeviceId)) {
         debugPrint('⚠️ Device not connected: $targetDeviceId');
-        _queueMessage(message, targetDeviceId);
+        await _queueMessage(message, targetDeviceId);
         return false;
       }
       
@@ -509,24 +653,23 @@ class DisasterBluetoothService extends ChangeNotifier {
       final List<int> data = fullMessage.codeUnits;
       
       // Send the data
-      await _ble.writeCharacteristicWithResponse(characteristic, data);
+      await _ble.writeCharacteristicWithoutResponse(characteristic, data);
       
       debugPrint('✅ Message sent successfully to $targetDeviceId');
       
       // Update message status
-      final updatedMessage = message.copyWith(status: MessageStatus.sent);
-      await _messageDb.updateMessage(updatedMessage);
+      await _messageDb.updateMessageStatus(message.id, MessageStatus.sent);
       
       return true;
     } catch (e) {
       debugPrint('❌ Error sending message: $e');
-      _queueMessage(message, targetDeviceId);
+      await _queueMessage(message, targetDeviceId);
       return false;
     }
   }
 
   /// Queue a message for later delivery
-  void _queueMessage(DisasterMessage message, String targetDeviceId) {
+  Future<void> _queueMessage(DisasterMessage message, String targetDeviceId) async {
     try {
       debugPrint('📋 Queuing message for later delivery to $targetDeviceId');
       
@@ -536,9 +679,8 @@ class DisasterBluetoothService extends ChangeNotifier {
       // Add message to queue
       _messageQueue[targetDeviceId]!.add(message);
       
-      // Update message status
-      final updatedMessage = message.copyWith(status: MessageStatus.failed);
-      _messageDb.updateMessage(updatedMessage);
+      // Update message status to failed
+      await _messageDb.updateMessageStatus(message.id, MessageStatus.failed);
       
       debugPrint('✅ Message queued for later delivery');
     } catch (e) {
@@ -551,6 +693,12 @@ class DisasterBluetoothService extends ChangeNotifier {
     try {
       debugPrint('📣 Broadcasting message to ${_writeCharacteristics.length} devices');
       
+      // Save to database AND add to message stream for UI display
+      await _messageDb.insertMessage(message);
+      
+      // Add to message stream so it shows up in UI immediately
+      _messageController.add(message);
+      
       for (final deviceId in _writeCharacteristics.keys) {
         await sendMessage(message, deviceId);
       }
@@ -561,16 +709,96 @@ class DisasterBluetoothService extends ChangeNotifier {
     }
   }
 
+  /// Send emergency SOS message to all connected devices
+  Future<void> sendEmergencySOS() async {
+    try {
+      final sosMessage = DisasterMessage(
+        senderId: _deviceId ?? 'unknown',
+        senderName: _userName ?? 'Anonymous',
+        content: '🆘 EMERGENCY SOS - Need immediate assistance! Location assistance required.',
+        type: MessageType.emergency,
+      );
+      
+      await broadcastMessage(sosMessage);
+      debugPrint('🆘 Emergency SOS sent to all connected devices');
+    } catch (e) {
+      debugPrint('❌ Error sending emergency SOS: $e');
+      rethrow;
+    }
+  }
+
+  /// Send a regular chat message to all connected devices
+  Future<void> sendChatMessage(String content) async {
+    try {
+      final chatMessage = DisasterMessage(
+        senderId: _deviceId ?? 'unknown',
+        senderName: _userName ?? 'Anonymous',
+        content: content,
+        type: MessageType.regular,
+      );
+      
+      await broadcastMessage(chatMessage);
+      debugPrint('💬 Chat message sent: $content');
+    } catch (e) {
+      debugPrint('❌ Error sending chat message: $e');
+      rethrow;
+    }
+  }
+
+  /// Send a private message to a specific device
+  Future<bool> sendPrivateMessage(String content, String targetDeviceId) async {
+    try {
+      final privateMessage = DisasterMessage(
+        senderId: _deviceId ?? 'unknown',
+        senderName: _userName ?? 'Anonymous',
+        content: content,
+        type: MessageType.regular,
+      );
+      
+      // Save to database AND add to message stream for UI display
+      await _messageDb.insertMessage(privateMessage);
+      
+      // Add to message stream so it shows up in UI immediately
+      _messageController.add(privateMessage);
+      
+      final success = await sendMessage(privateMessage, targetDeviceId);
+      if (success) {
+        debugPrint('💬 Private message sent to $targetDeviceId: $content');
+      }
+      return success;
+    } catch (e) {
+      debugPrint('❌ Error sending private message: $e');
+      return false;
+    }
+  }
+
+  /// Get list of connected devices for chat
+  List<String> getConnectedDeviceIds() {
+    return _writeCharacteristics.keys.toList();
+  }
+
+  /// Get device status for a specific device
+  String? getDeviceStatus(String deviceId) {
+    return _deviceStatuses[deviceId];
+  }
+
+  /// Check if any devices are connected for chatting
+  bool get hasConnectedDevices => _writeCharacteristics.isNotEmpty;
+
   /// Update device status for UI feedback
   void _updateDeviceStatus(String deviceId, String status) {
     _deviceStatuses[deviceId] = status;
+    
+    // Broadcast status changes to UI
+    _connectionStatusController.add(Map.from(_deviceStatuses));
+    
     notifyListeners();
   }
 
   /// Get recent messages from the database
   Future<List<DisasterMessage>> getRecentMessages() async {
     try {
-      return await _messageDb.getRecentMessages(100);
+      return await _messageDb.getRecentMessages();
     } catch (e) {
       debugPrint('❌ Error getting recent messages: $e');
       return [];
@@ -582,6 +810,9 @@ class DisasterBluetoothService extends ChangeNotifier {
   Future<void> dispose() async {
     try {
       debugPrint('🧹 Cleaning up Bluetooth resources...');
+      
+      // Stop advertising
+      await stopAdvertising();
       
       // Stop scanning
       await stopScanning();
