@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'dart:math';
 
 import '../../core/app_export.dart';
-import '../../core/services/disaster_alerts_service.dart';
+import '../../core/services/india_disaster_alert_service.dart';
+import '../../core/services/language_preference_service.dart';
+import '../../widgets/language_selector.dart';
+import '../../widgets/multilanguage_alert_card.dart';
 import './widgets/alert_card_widget.dart';
 import './widgets/alert_filter_chips_widget.dart';
 import './widgets/filter_bottom_sheet_widget.dart';
@@ -20,7 +24,6 @@ class DisasterAlertsScreen extends StatefulWidget {
 class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final DisasterAlertsService _alertsService = DisasterAlertsService();
 
   String _selectedCategory = 'All';
   String _selectedSeverity = 'All';
@@ -30,11 +33,12 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
   bool _isRefreshing = false;
   bool _isLoading = true;
   Position? _currentPosition;
+  String _selectedLanguage = 'en'; // User's preferred language
 
   final List<String> _categories = ['All', 'Active', 'Warnings', 'Resolved'];
 
-  // Real disaster alerts data from Ambee API
-  List<Map<String, dynamic>> _realAlerts = [];
+  // Real disaster alerts data from India Disaster Alert Service
+  List<DisasterAlert> _realAlerts = [];
 
   @override
   void initState() {
@@ -53,6 +57,12 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
     });
 
     try {
+      // Load user's preferred language
+      final preferredLanguage = await LanguagePreferenceService.getPreferredLanguage();
+      setState(() {
+        _selectedLanguage = preferredLanguage;
+      });
+
       // Get current location
       await _getCurrentLocation();
       
@@ -100,24 +110,32 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
 
   Future<void> _loadRealAlerts() async {
     try {
-      print('🇮🇳 Loading India-focused disaster alerts with news headlines...');
-      final alerts = await _alertsService.fetchDisasterAlerts(
-        latitude: _currentPosition?.latitude,
-        longitude: _currentPosition?.longitude,
-        radiusKm: 300, // Focused radius for India-relevant results
+      print('🇮🇳 Loading India-focused disaster alerts...');
+      
+      // Get user location for proximity prioritization
+      LatLng? userLocation;
+      if (_currentPosition != null) {
+        userLocation = LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+      }
+      
+      // Fetch alerts using the new India Disaster Alert Service
+      final alerts = await IndiaDisasterAlertService.getIndiaAlerts(
+        userLocation: userLocation,
+        limitResults: 15, // Focused results for screen display
+        languageCode: _selectedLanguage, // Use user's preferred language
       );
       
       setState(() {
         _realAlerts = alerts;
       });
       
-      print('✅ Loaded ${alerts.length} India-focused disaster alerts with news-style headlines');
+      print('✅ Loaded ${alerts.length} India-focused disaster alerts');
       
-      // Log sample alert titles for verification
+      // Log actual alert titles for verification
       if (alerts.isNotEmpty) {
-        print('📰 Sample alert titles:');
+        print('📰 Current alert titles:');
         for (int i = 0; i < min(3, alerts.length); i++) {
-          print('   ${i + 1}. ${alerts[i]['title']}');
+          print('   ${i + 1}. ${alerts[i].title}');
         }
       }
     } catch (e) {
@@ -145,23 +163,39 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
     }
   }
 
-  List<Map<String, dynamic>> _getEmergencyFallbackAlerts() {
+  List<DisasterAlert> _getEmergencyFallbackAlerts() {
     final now = DateTime.now();
     return [
-      {
-        'id': 'fallback_1',
-        'title': 'Service Notification',
-        'type': 'info',
-        'severity': 'info',
-        'description': 'Unable to fetch live disaster alerts. Please check your internet connection and try again.',
-        'affectedArea': 'System Status',
-        'timestamp': now.toIso8601String(),
-        'isRead': false,
-        'isPinned': false,
-        'status': 'active',
-        'source': 'Emergency Alert System'
-      }
+      DisasterAlert(
+        id: 'fallback_1',
+        title: 'Service Notification',
+        type: DisasterType.other,
+        severity: AlertSeverity.info,
+        description: 'Unable to fetch live disaster alerts. Please check your internet connection and try again.',
+        location: LatLng(28.6139, 77.2090), // Delhi coordinates as fallback
+        timestamp: now,
+        source: 'Emergency Alert System',
+        sourceUrl: '',
+        metadata: {'fallback': true},
+      )
     ];
+  }
+
+  /// Convert DisasterAlert to Map for compatibility with existing widgets
+  Map<String, dynamic> _convertToMap(DisasterAlert alert) {
+    return {
+      'id': alert.id,
+      'title': alert.title,
+      'description': alert.description,
+      'type': alert.type.name,
+      'severity': alert.severity.name,
+      'affectedArea': alert.source, // Use source as affected area for now
+      'timestamp': alert.timestamp.toIso8601String(),
+      'source': alert.source,
+      'isRead': false, // Default values for UI state
+      'isPinned': false,
+      'status': 'active',
+    };
   }
 
   @override
@@ -171,19 +205,19 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _filteredAlerts {
-    List<Map<String, dynamic>> filtered = List.from(_realAlerts);
+  List<DisasterAlert> get _filteredAlerts {
+    List<DisasterAlert> filtered = List.from(_realAlerts);
 
     // Filter by category
     if (_selectedCategory != 'All') {
       filtered = filtered.where((alert) {
         switch (_selectedCategory.toLowerCase()) {
           case 'active':
-            return alert['status'] == 'active';
+            return true; // All alerts are active by default
           case 'warnings':
-            return alert['severity'] == 'warning' || alert['severity'] == 'critical';
+            return alert.severity == AlertSeverity.warning || alert.severity == AlertSeverity.critical;
           case 'resolved':
-            return alert['status'] == 'resolved';
+            return false; // No resolved alerts in current implementation
           default:
             return true;
         }
@@ -194,7 +228,7 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
     if (_selectedSeverity != 'All') {
       filtered = filtered
           .where((alert) =>
-              alert['severity'].toString().toLowerCase() ==
+              alert.severity.name.toLowerCase() ==
               _selectedSeverity.toLowerCase())
           .toList();
     }
@@ -203,7 +237,7 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
     if (_selectedType != 'All') {
       filtered = filtered
           .where((alert) =>
-              alert['type'].toString().toLowerCase() ==
+              alert.type.name.toLowerCase() ==
               _selectedType.toLowerCase())
           .toList();
     }
@@ -211,65 +245,29 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
     // Filter by date range
     if (_selectedDateRange != null) {
       filtered = filtered.where((alert) {
-        final alertTimestamp = alert['timestamp'];
-        DateTime alertDate;
+        final alertTimestamp = alert.timestamp;
         
-        if (alertTimestamp is String) {
-          alertDate = DateTime.parse(alertTimestamp);
-        } else if (alertTimestamp is DateTime) {
-          alertDate = alertTimestamp;
-        } else {
-          return false;
-        }
-        
-        return alertDate.isAfter(
+        return alertTimestamp.isAfter(
                 _selectedDateRange!.start.subtract(Duration(days: 1))) &&
-            alertDate.isBefore(_selectedDateRange!.end.add(Duration(days: 1)));
+            alertTimestamp.isBefore(_selectedDateRange!.end.add(Duration(days: 1)));
       }).toList();
     }
 
     // Filter by search query
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((alert) {
-        final title = alert['title'].toString().toLowerCase();
-        final description = alert['description'].toString().toLowerCase();
-        final area = alert['affectedArea'].toString().toLowerCase();
+        final title = alert.title.toLowerCase();
+        final description = alert.description.toLowerCase();
         final query = _searchQuery.toLowerCase();
 
         return title.contains(query) ||
-            description.contains(query) ||
-            area.contains(query);
+            description.contains(query);
       }).toList();
     }
 
-    // Sort by pinned first, then by timestamp
+    // Sort by timestamp (newest first) - pinning functionality can be added later
     filtered.sort((a, b) {
-      if (a['isPinned'] == true && b['isPinned'] != true) return -1;
-      if (b['isPinned'] == true && a['isPinned'] != true) return 1;
-
-      final aTimestamp = a['timestamp'];
-      final bTimestamp = b['timestamp'];
-      
-      DateTime aTime, bTime;
-      
-      // Handle both String and DateTime formats
-      if (aTimestamp is String) {
-        aTime = DateTime.parse(aTimestamp);
-      } else if (aTimestamp is DateTime) {
-        aTime = aTimestamp;
-      } else {
-        aTime = DateTime.now();
-      }
-      
-      if (bTimestamp is String) {
-        bTime = DateTime.parse(bTimestamp);
-      } else if (bTimestamp is DateTime) {
-        bTime = bTimestamp;
-      } else {
-        bTime = DateTime.now();
-      }
-
-      return bTime.compareTo(aTime);
+      return b.timestamp.compareTo(a.timestamp);
     });
 
     return filtered;
@@ -296,6 +294,16 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // Language selection button
+          IconButton(
+            icon: CustomIconWidget(
+              iconName: 'language',
+              color: AppTheme.lightTheme.appBarTheme.foregroundColor!,
+              size: 6.w,
+            ),
+            onPressed: _showLanguageSelector,
+            tooltip: 'Select Language',
+          ),
           IconButton(
             icon: CustomIconWidget(
               iconName: 'notifications',
@@ -397,15 +405,10 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
                             itemCount: _filteredAlerts.length,
                             itemBuilder: (context, index) {
                               final alert = _filteredAlerts[index];
-                              return AlertCardWidget(
+                              return MultiLanguageAlertCard(
                                 alert: alert,
-                                onTap: () => _showAlertDetails(alert),
-                                onShare: () => _shareAlert(alert),
-                                onReminder: () => _setReminder(alert),
-                                onMarkRead: () => _toggleReadStatus(alert),
-                                onPin: () => _togglePinStatus(alert),
-                                onHide: () => _hideAlertType(alert),
-                                onReport: () => _reportFalseAlert(alert),
+                                languageCode: _selectedLanguage,
+                                onTap: () => _showAlertDetails(_convertToMap(alert)),
                               );
                             },
                           ),
@@ -637,20 +640,25 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
 
   void _toggleReadStatus(Map<String, dynamic> alert) {
     setState(() {
-      final index = _realAlerts.indexWhere((a) => a['id'] == alert['id']);
-      if (index != -1) {
-        _realAlerts[index]['isRead'] = !(_realAlerts[index]['isRead'] ?? false);
-      }
+      // For now, just show feedback - would need to implement persistent state storage
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Alert marked as read'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     });
   }
 
   void _togglePinStatus(Map<String, dynamic> alert) {
     setState(() {
-      final index = _realAlerts.indexWhere((a) => a['id'] == alert['id']);
-      if (index != -1) {
-        _realAlerts[index]['isPinned'] =
-            !(_realAlerts[index]['isPinned'] ?? false);
-      }
+      // For now, just show feedback - would need to implement persistent state storage
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Alert pinned'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     });
   }
 
@@ -714,6 +722,72 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
 
   void _reportNewAlert() {
     Navigator.pushNamed(context, '/incident-reporting-screen');
+  }
+
+  void _showLanguageSelector() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: EdgeInsets.all(4.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 12.w,
+              height: 1.h,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2.5),
+              ),
+            ),
+            SizedBox(height: 3.h),
+            
+            Text(
+              'Select Alert Language',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 2.h),
+            
+            // Language Selector Widget
+            LanguageSelector(
+              initialLanguage: _selectedLanguage,
+              onLanguageChanged: (String newLanguage) async {
+                setState(() {
+                  _selectedLanguage = newLanguage;
+                });
+                
+                // Refresh alerts with new language
+                await _loadRealAlerts();
+                
+                Navigator.pop(context);
+                
+                // Show confirmation
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Language changed to ${LanguagePreferenceService.getLanguageName(newLanguage)}',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+              showTitle: false,
+            ),
+            
+            SizedBox(height: 4.h),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showNotificationSettings() {

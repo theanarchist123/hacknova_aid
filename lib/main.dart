@@ -6,6 +6,7 @@ import 'core/app_export.dart';
 import 'widgets/custom_error_widget.dart';
 import 'core/services/community_pin_store.dart';
 import 'core/services/disaster_bluetooth_service.dart';
+import 'core/services/alert_background_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,10 @@ void main() async {
     // Ensure Bluetooth service also has database initialized
     DisasterBluetoothService.ensureDatabaseInitialized();
     print('✅ Bluetooth service database initialized');
+
+    // REMOVE eager background service start - will start after first frame
+    // AlertBackgroundService.startBackgroundMonitoring();
+    // print('✅ Alert background service started');
   } catch (e) {
     print('⚠️ Database initialization warning: $e');
   }
@@ -50,8 +55,34 @@ void main() async {
   });
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _alertServiceStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Start background alert service after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (_alertServiceStarted) return;
+      _alertServiceStarted = true;
+      
+      try {
+        await Future.delayed(Duration(seconds: 2)); // Small delay to let app settle
+        await AlertBackgroundService.startBackgroundMonitoring();
+        print('✅ Alert background service started (post-frame)');
+      } catch (e) {
+        print('⚠️ Failed to start alert background service: $e');
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

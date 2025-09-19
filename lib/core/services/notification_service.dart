@@ -1,7 +1,9 @@
 import 'dart:async';
-import 'disaster_alerts_service.dart';
+import 'india_disaster_alert_service.dart';
+import 'language_preference_service.dart';
 import 'location_service.dart';
 import 'google_services.dart';
+import 'package:latlong2/latlong.dart';
 
 class NotificationService {
   static StreamController<Map<String, dynamic>>? _notificationController;
@@ -39,17 +41,20 @@ class NotificationService {
       // Check for weather-based notifications
       _checkWeatherNotifications(weather);
       
-      // Get disaster alerts
-      final alertsService = DisasterAlertsService();
-      final alerts = await alertsService.fetchDisasterAlerts(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        radiusKm: 50,
+      // Get user's preferred language for notifications
+      final preferredLanguage = await LanguagePreferenceService.getPreferredLanguage();
+      
+      // Get disaster alerts using the same service as the main screen
+      final userLocation = LatLng(position.latitude, position.longitude);
+      final alerts = await IndiaDisasterAlertService.getIndiaAlerts(
+        userLocation: userLocation,
+        limitResults: 10,
+        languageCode: preferredLanguage,
       );
       
       // Check for new high-priority alerts
       for (var alert in alerts) {
-        final alertId = (alert['id']?.toString() ?? alert['title']?.toString() ?? '');
+        final alertId = alert.id;
         if (!_lastAlertIds.contains(alertId)) {
           _lastAlertIds.add(alertId);
           
@@ -57,12 +62,13 @@ class NotificationService {
           if (_isHighPriorityAlert(alert)) {
             _sendNotification({
               'type': 'disaster_alert',
-              'title': alert['title'] ?? 'Disaster Alert',
-              'message': alert['description'] ?? 'New disaster alert in your area',
-              'severity': alert['severity'] ?? 'moderate',
-              'icon': _getAlertIcon(alert['type'] ?? ''),
+              'title': alert.title,
+              'message': alert.description,
+              'severity': alert.severity.name,
+              'icon': _getAlertIcon(alert.type.name),
               'timestamp': DateTime.now().toIso8601String(),
-              'data': alert,
+              'data': alert.toMap(),
+              'language': preferredLanguage,
             });
           }
         }
@@ -125,29 +131,28 @@ class NotificationService {
     }
   }
   
-  static bool _isHighPriorityAlert(Map<String, dynamic> alert) {
-    final severity = alert['severity']?.toLowerCase() ?? '';
-    final type = alert['type']?.toLowerCase() ?? '';
+  static bool _isHighPriorityAlert(DisasterAlert alert) {
+    final severity = alert.severity.name.toLowerCase();
+    final type = alert.type.name.toLowerCase();
     
-    // High priority: severe/extreme severity or dangerous disaster types
-    return severity.contains('severe') || 
-           severity.contains('extreme') || 
-           severity.contains('critical') ||
-           type.contains('earthquake') ||
-           type.contains('tsunami') ||
-           type.contains('cyclone') ||
-           type.contains('fire');
+    // High priority: severe/critical severity or dangerous disaster types
+    return severity == 'severe' || 
+           severity == 'critical' ||
+           type == 'earthquake' ||
+           type == 'tsunami' ||
+           type == 'cyclone' ||
+           type == 'wildfire';
   }
   
   static String _getAlertIcon(String alertType) {
     final type = alertType.toLowerCase();
-    if (type.contains('earthquake')) return '🏗️';
-    if (type.contains('flood')) return '🌊';
-    if (type.contains('fire')) return '🔥';
-    if (type.contains('cyclone') || type.contains('hurricane')) return '🌀';
-    if (type.contains('tsunami')) return '🌊';
-    if (type.contains('volcano')) return '🌋';
-    if (type.contains('landslide')) return '⛰️';
+    if (type == 'earthquake') return '🏗️';
+    if (type == 'flood') return '🌊';
+    if (type == 'wildfire') return '🔥';
+    if (type == 'cyclone' || type == 'storm') return '🌀';
+    if (type == 'tsunami') return '🌊';
+    if (type == 'landslide') return '⛰️';
+    if (type == 'drought') return '🏜️';
     return '⚠️';
   }
   
