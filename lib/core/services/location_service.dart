@@ -127,4 +127,95 @@ class LocationService {
       endLongitude,
     ) / 1000; // Convert to kilometers
   }
+  
+  /// Get the region name for a given location
+  static String getRegionForLocation(Map<String, double> location) {
+    final lat = location['latitude']!;
+    final lng = location['longitude']!;
+    
+    // Simple region mapping for India
+    if (lat >= 30.0 && lat <= 37.0 && lng >= 73.0 && lng <= 78.0) {
+      return 'North India';
+    } else if (lat >= 20.0 && lat < 30.0 && lng >= 68.0 && lng <= 88.0) {
+      return 'Central India';
+    } else if (lat >= 8.0 && lat < 20.0 && lng >= 68.0 && lng <= 88.0) {
+      return 'South India';
+    } else if (lat >= 20.0 && lat <= 30.0 && lng >= 88.0 && lng <= 97.0) {
+      return 'East India';
+    } else if (lat >= 20.0 && lat <= 30.0 && lng >= 68.0 && lng < 75.0) {
+      return 'West India';
+    } else {
+      return 'India';
+    }
+  }
+  
+  /// Get the nearest major city for a given location
+  static String getNearestCity(Map<String, double> location) {
+    final lat = location['latitude']!;
+    final lng = location['longitude']!;
+    
+    // Major Indian cities with their coordinates
+    final cities = {
+      'Delhi': {'lat': 28.6139, 'lng': 77.2090},
+      'Mumbai': {'lat': 19.0760, 'lng': 72.8777},
+      'Bangalore': {'lat': 12.9716, 'lng': 77.5946},
+      'Chennai': {'lat': 13.0827, 'lng': 80.2707},
+      'Kolkata': {'lat': 22.5726, 'lng': 88.3639},
+      'Hyderabad': {'lat': 17.3850, 'lng': 78.4867},
+      'Pune': {'lat': 18.5204, 'lng': 73.8567},
+      'Ahmedabad': {'lat': 23.0225, 'lng': 72.5714},
+      'Jaipur': {'lat': 26.9124, 'lng': 75.7873},
+      'Lucknow': {'lat': 26.8467, 'lng': 80.9462},
+    };
+    
+    String nearestCity = 'Unknown';
+    double minDistance = double.infinity;
+    
+    cities.forEach((cityName, cityCoords) {
+      final distance = calculateDistance(
+        lat, lng, 
+        cityCoords['lat']!, cityCoords['lng']!
+      );
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestCity = cityName;
+      }
+    });
+    
+    return nearestCity;
+  }
+  
+  /// Clear location cache (placeholder for now)
+  static void clearCache() {
+    // Implementation for clearing location cache
+    print('Location cache cleared');
+  }
+  
+  /// Get location with fallback (placeholder)
+  static Future<Map<String, double>?> getLocationWithFallback() async {
+    try {
+      final position = await getCurrentPosition();
+      if (position != null) {
+        return {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+        };
+      }
+    } catch (e) {
+      print('Error getting location: $e');
+    }
+    
+    // Fallback to approximate center of India
+    return {
+      'latitude': 20.5937,
+      'longitude': 78.9629,
+    };
+  }
+  
+  /// Check if location is cached
+  static bool hasCachedLocation() {
+    // Placeholder - return false for now
+    return false;
+  }
 }

@@ -51,7 +51,7 @@ class AppRoutes {
     bluetoothSOS: (context) => const BluetoothSosScreen(),
     speechQna: (context) => const SpeechQnaScreen(),
     disasterSafety: (context) => const DisasterSafetyScreen(),
-    enhancedMap: (context) => const enhanced.InteractiveMapScreen(),
+    enhancedMap: (context) => const enhanced.InteractiveMapScreenEnhanced(),
     // TODO: Add your other routes here
   };
 }

@@ -20,6 +20,11 @@ class IndiaDisasterAlertService {
   // Alert cache
   static List<DisasterAlert> _cachedAlerts = [];
 
+  /// Get current alerts (alias for getIndiaAlerts)
+  Future<List<DisasterAlert>> getCurrentAlerts() async {
+    return getIndiaAlerts();
+  }
+
   /// Get India-specific disaster alerts with multi-language support
   /// Prioritizes alerts in Maharashtra and translates based on user's language preference
   static Future<List<DisasterAlert>> getIndiaAlerts({

@@ -82,13 +82,19 @@ class AlertBackgroundService {
       // Fetch fresh alerts
       final alerts = await alertStore.fetchAndStoreAlerts();
       
+      // Early return if no alerts (placeholder functionality)
+      if (alerts.isEmpty) {
+        print('🔄 Background fetch completed: no alerts (placeholder mode)');
+        return;
+      }
+      
       // Check for high-priority alerts
       final criticalAlerts = alerts.where((a) => 
         a.severity.index >= AlertSeverity.severe.index).toList();
 
       if (criticalAlerts.isNotEmpty) {
         print('🚨 Found ${criticalAlerts.length} critical/severe alerts');
-        _notifyAboutCriticalAlerts(criticalAlerts);
+        // _notifyAboutCriticalAlerts(criticalAlerts); // Disabled for placeholder mode
       }
 
       print('✅ Background fetch completed: ${alerts.length} alerts processed');
