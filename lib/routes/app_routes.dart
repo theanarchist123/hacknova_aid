@@ -9,6 +9,7 @@ import '../presentation/comprehensive_dashboard/comprehensive_dashboard_screen.d
 import '../presentation/ocr_screen/ocr_screen.dart';
 import '../presentation/bluetooth_sos_screen/bluetooth_sos_screen.dart';
 import '../presentation/speech_qna_screen/speech_qna_screen.dart';
+import '../presentation/disaster_preparedness_screen/disaster_preparedness_screen.dart';
 
 class AppRoutes {
   // TODO: Add your routes here
@@ -23,6 +24,7 @@ class AppRoutes {
   static const String ocr = '/ocr-screen';
   static const String bluetoothSOS = '/bluetooth-sos-screen';
   static const String speechQna = '/speech-qna-screen';
+  static const String disasterPreparedness = '/disaster-preparedness';
 
   static Map<String, WidgetBuilder> routes = {
     initial: (context) => const SplashScreen(),
@@ -43,6 +45,7 @@ class AppRoutes {
     ocr: (context) => OCRScreen(),
     bluetoothSOS: (context) => const BluetoothSosScreen(),
     speechQna: (context) => const SpeechQnaScreen(),
+    disasterPreparedness: (context) => const DisasterPreparednessScreen(),
     // TODO: Add your other routes here
   };
 }

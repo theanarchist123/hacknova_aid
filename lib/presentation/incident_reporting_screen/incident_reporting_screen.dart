@@ -61,14 +61,27 @@ class _IncidentReportingScreenState extends State<IncidentReportingScreen> {
   void _initializeWithPassedData() {
     // Initialize with passed location data from map pin
     if (widget.initialLocation != null) {
+      print('Initializing with location: ${widget.initialLocation}');
       setState(() {
         _selectedLocation = widget.initialLocation!;
       });
     }
     if (widget.initialLatitude != null && widget.initialLongitude != null) {
+      print('Initializing with coordinates: ${widget.initialLatitude}, ${widget.initialLongitude}');
       setState(() {
         _latitude = widget.initialLatitude!;
         _longitude = widget.initialLongitude!;
+      });
+    }
+    
+    // If we have all the data, also notify the location widget
+    if (widget.initialLocation != null && widget.initialLatitude != null && widget.initialLongitude != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _selectedLocation = widget.initialLocation!;
+          _latitude = widget.initialLatitude!;
+          _longitude = widget.initialLongitude!;
+        });
       });
     }
   }

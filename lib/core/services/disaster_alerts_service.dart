@@ -10,10 +10,10 @@ class DisasterAlertsService {
   Future<List<Map<String, dynamic>>> fetchDisasterAlerts({
     double? latitude,
     double? longitude,
-    int radiusKm = 100,
+    int radiusKm = 300, // Reduced for India-focused results
   }) async {
     try {
-      print('🚨 Fetching disaster alerts using free CORS-safe APIs...');
+      print('🇮🇳 Fetching India-focused disaster alerts using free CORS-safe APIs...');
       
       // Primary source: Use the new free alerts service (USGS + NASA EONET + ReliefWeb)
       if (latitude != null && longitude != null) {
@@ -24,7 +24,7 @@ class DisasterAlertsService {
           radiusKm: radiusKm,
         );
         
-        print('✅ Fetched ${freeAlerts.length} alerts from free APIs');
+        print('✅ Fetched ${freeAlerts.length} India-focused alerts from free APIs');
         
         // If we have good results, return them
         if (freeAlerts.isNotEmpty) {
@@ -113,23 +113,46 @@ class DisasterAlertsService {
     return [];
   }
 
-  /// Emergency fallback alerts when all APIs fail
+  /// Emergency fallback alerts when all APIs fail - India-focused
   List<Map<String, dynamic>> _getEmergencyFallbackAlerts(double? lat, double? lon) {
     final now = DateTime.now();
+    
+    // Determine user's region in India for more relevant alerts
+    String region = 'India';
+    String stateInfo = '';
+    if (lat != null && lon != null) {
+      if (lat >= 28 && lat <= 32 && lon >= 76 && lon <= 79) {
+        region = 'Northern India';
+        stateInfo = 'Delhi/NCR region';
+      } else if (lat >= 18 && lat <= 20 && lon >= 72 && lon <= 75) {
+        region = 'Western India';
+        stateInfo = 'Mumbai/Maharashtra region';
+      } else if (lat >= 12 && lat <= 14 && lon >= 77 && lon <= 78) {
+        region = 'Southern India';
+        stateInfo = 'Bangalore/Karnataka region';
+      } else if (lat >= 22 && lat <= 23 && lon >= 88 && lon <= 89) {
+        region = 'Eastern India';
+        stateInfo = 'Kolkata/West Bengal region';
+      } else if (lat >= 17 && lat <= 18 && lon >= 78 && lon <= 79) {
+        region = 'Southern India';
+        stateInfo = 'Hyderabad/Telangana region';
+      }
+    }
+    
     return [
       {
         'id': 'fallback_weather_${now.millisecondsSinceEpoch}',
-        'title': 'Weather Monitoring Active',
+        'title': 'Weather Monitoring Active - $region',
         'type': 'weather',
         'category': 'monitoring',
         'severity': 'info',
         'severityLevel': 1,
-        'description': 'Weather monitoring systems are active. Stay alert for weather updates.',
-        'source': 'Emergency Fallback System',
+        'description': 'Indian Meteorological Department (IMD) weather monitoring systems are active in $region. Stay alert for monsoon and weather updates.',
+        'source': 'India Emergency Fallback System',
         'timestamp': now.toIso8601String(),
         'lat': lat,
         'lon': lon,
-        'affectedArea': lat != null && lon != null ? 'Your area' : 'Unknown location',
+        'affectedArea': stateInfo.isNotEmpty ? stateInfo : region,
         'coordinates': {
           'latitude': lat,
           'longitude': lon,
@@ -138,20 +161,22 @@ class DisasterAlertsService {
         'isPinned': false,
         'status': 'active',
         'distance_km': 0.0,
+        'priority': 1,
+        'country': 'India',
       },
       {
         'id': 'fallback_emergency_${(now.millisecondsSinceEpoch + 1)}',
-        'title': 'Emergency Services Available',
+        'title': 'NDRF & Emergency Services Active - India',
         'type': 'emergency_services',
         'category': 'information',
         'severity': 'info',
         'severityLevel': 1,
-        'description': 'Emergency services and disaster response teams are available 24/7.',
-        'source': 'Emergency Fallback System',
+        'description': 'National Disaster Response Force (NDRF) and state emergency services are available 24/7 across India. Emergency helpline: 108',
+        'source': 'India Emergency Fallback System',
         'timestamp': now.subtract(Duration(hours: 1)).toIso8601String(),
         'lat': lat,
         'lon': lon,
-        'affectedArea': 'Regional coverage',
+        'affectedArea': 'Pan-India coverage',
         'coordinates': {
           'latitude': lat,
           'longitude': lon,
@@ -160,6 +185,32 @@ class DisasterAlertsService {
         'isPinned': false,
         'status': 'active',
         'distance_km': 5.0,
+        'priority': 1,
+        'country': 'India',
+      },
+      {
+        'id': 'fallback_monsoon_${(now.millisecondsSinceEpoch + 2)}',
+        'title': 'Seasonal Weather Advisory - India',
+        'type': 'weather',
+        'category': 'advisory',
+        'severity': 'info',
+        'severityLevel': 2,
+        'description': 'Stay prepared for seasonal weather changes including monsoons, cyclones, and extreme temperatures. Follow IMD updates regularly.',
+        'source': 'India Emergency Fallback System',
+        'timestamp': now.subtract(Duration(hours: 2)).toIso8601String(),
+        'lat': lat,
+        'lon': lon,
+        'affectedArea': 'India - Seasonal',
+        'coordinates': {
+          'latitude': lat,
+          'longitude': lon,
+        },
+        'isRead': false,
+        'isPinned': false,
+        'status': 'active',
+        'distance_km': 10.0,
+        'priority': 2,
+        'country': 'India',
       },
     ];
   }

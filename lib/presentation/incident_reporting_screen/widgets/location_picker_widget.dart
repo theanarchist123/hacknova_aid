@@ -31,6 +31,14 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
   }
 
   @override
+  void didUpdateWidget(LocationPickerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedLocation != oldWidget.selectedLocation) {
+      _locationController.text = widget.selectedLocation ?? '';
+    }
+  }
+
+  @override
   void dispose() {
     _locationController.dispose();
     super.dispose();

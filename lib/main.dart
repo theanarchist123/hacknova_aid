@@ -4,9 +4,24 @@ import 'package:sizer/sizer.dart';
 
 import 'core/app_export.dart';
 import 'widgets/custom_error_widget.dart';
+import 'core/services/community_pin_store.dart';
+import 'core/services/disaster_bluetooth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize database
+  try {
+    // Initialize CommunityPinStore
+    CommunityPinStore.initialize();
+    print('✅ Database initialized successfully');
+    
+    // Ensure Bluetooth service also has database initialized
+    DisasterBluetoothService.ensureDatabaseInitialized();
+    print('✅ Bluetooth service database initialized');
+  } catch (e) {
+    print('⚠️ Database initialization warning: $e');
+  }
 
   bool hasShownError = false;
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:math';
 
 import '../../core/app_export.dart';
 import '../../core/services/disaster_alerts_service.dart';
@@ -99,19 +100,28 @@ class _DisasterAlertsScreenState extends State<DisasterAlertsScreen> {
 
   Future<void> _loadRealAlerts() async {
     try {
+      print('🇮🇳 Loading India-focused disaster alerts with news headlines...');
       final alerts = await _alertsService.fetchDisasterAlerts(
         latitude: _currentPosition?.latitude,
         longitude: _currentPosition?.longitude,
-        radiusKm: 100,
+        radiusKm: 300, // Focused radius for India-relevant results
       );
       
       setState(() {
         _realAlerts = alerts;
       });
       
-      print('Loaded ${alerts.length} real disaster alerts');
+      print('✅ Loaded ${alerts.length} India-focused disaster alerts with news-style headlines');
+      
+      // Log sample alert titles for verification
+      if (alerts.isNotEmpty) {
+        print('📰 Sample alert titles:');
+        for (int i = 0; i < min(3, alerts.length); i++) {
+          print('   ${i + 1}. ${alerts[i]['title']}');
+        }
+      }
     } catch (e) {
-      print('Error loading real alerts: $e');
+      print('❌ Error loading real alerts: $e');
       setState(() {
         _realAlerts = _getEmergencyFallbackAlerts();
       });

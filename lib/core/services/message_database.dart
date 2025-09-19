@@ -10,6 +10,11 @@ class MessageDatabase {
   factory MessageDatabase() => _instance;
   MessageDatabase._internal();
 
+  /// Initialize the database connection
+  Future<void> init() async {
+    await database; // This will trigger initialization
+  }
+
   /// Get the database instance
   Future<Database> get database async {
     if (_database != null) return _database!;
