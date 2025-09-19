@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sizer/sizer.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/app_export.dart';
@@ -688,7 +688,7 @@ class _BluetoothSosScreenState extends State<BluetoothSosScreen> with TickerProv
                       ),
                       SizedBox(height: 2.h),
                       Text(
-                        _bluetoothService.bluetoothState == BluetoothState.STATE_OFF
+                        !_bluetoothService.bluetoothEnabled
                             ? 'Bluetooth is turned off'
                             : 'No devices found',
                         style: TextStyle(
@@ -697,7 +697,7 @@ class _BluetoothSosScreenState extends State<BluetoothSosScreen> with TickerProv
                         ),
                       ),
                       SizedBox(height: 1.h),
-                      if (_bluetoothService.bluetoothState == BluetoothState.STATE_OFF)
+                      if (!_bluetoothService.bluetoothEnabled)
                         Text(
                           'Please enable Bluetooth in device settings',
                           style: TextStyle(
@@ -743,7 +743,7 @@ class _BluetoothSosScreenState extends State<BluetoothSosScreen> with TickerProv
                   itemCount: _devices.length,
                   itemBuilder: (context, index) {
                     final device = _devices[index];
-                    final isConnected = _bluetoothService.connectedDevices.containsKey(device.address);
+                    final isConnected = _bluetoothService.connectedDevices.containsKey(device.remoteId.str);
                     
                     return Card(
                       margin: EdgeInsets.only(bottom: 2.h),
@@ -754,24 +754,23 @@ class _BluetoothSosScreenState extends State<BluetoothSosScreen> with TickerProv
                           size: 8.w,
                         ),
                         title: Text(
-                          device.name?.isNotEmpty == true
-                              ? device.name! 
+                          device.advName.isNotEmpty
+                              ? device.advName 
                               : 'Unknown Device',
                           style: TextStyle(fontWeight: FontWeight.w500),
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(device.address),
-                            if (device.bondState == BluetoothBondState.bonded)
-                              Text('Paired', style: TextStyle(color: Colors.green, fontSize: 10.sp)),
+                            Text(device.remoteId.str),
+                            Text('BLE Device', style: TextStyle(color: Colors.blue, fontSize: 10.sp)),
                           ],
                         ),
                         trailing: isConnected
                             ? TextButton(
                                 onPressed: () async {
                                   try {
-                                    await _bluetoothService.disconnectFromDevice(device.address);
+                                    await _bluetoothService.disconnectFromDevice(device.remoteId.str);
                                   } catch (e) {
                                     debugPrint('Error disconnecting: $e');
                                   }
@@ -785,12 +784,12 @@ class _BluetoothSosScreenState extends State<BluetoothSosScreen> with TickerProv
                                     if (mounted) {
                                       if (success) {
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Connected to ${device.name ?? device.address}')),
+                                          SnackBar(content: Text('Connected to ${device.advName.isNotEmpty ? device.advName : device.remoteId.str}')),
                                         );
                                       } else {
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(
-                                            content: Text('Failed to connect to ${device.name ?? device.address}'),
+                                            content: Text('Failed to connect to ${device.advName.isNotEmpty ? device.advName : device.remoteId.str}'),
                                             backgroundColor: Colors.red,
                                           ),
                                         );
