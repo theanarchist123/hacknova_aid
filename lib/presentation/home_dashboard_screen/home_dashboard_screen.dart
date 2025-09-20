@@ -207,12 +207,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       case 'incident':
         Navigator.pushNamed(context, '/interactive-map-screen');
         break;
-      case 'ble-test':
-        Navigator.pushNamed(context, '/simple-ble-test');
-        break;
-      case 'system-bluetooth':
-        Navigator.pushNamed(context, '/system-bluetooth');
-        break;
       case 'bluetooth-classic-messenger':
         Navigator.pushNamed(context, '/bluetooth-classic-messenger');
         break;
@@ -299,32 +293,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             'title': 'View Map',
             'icon': 'map',
             'onTap': () => _handleQuickAction('incident'),
-          },
-        ];
-      case 'ble-test':
-        return [
-          {
-            'title': 'Test BLE',
-            'icon': 'bluetooth_searching',
-            'onTap': () => _handleQuickAction('ble-test'),
-          },
-          {
-            'title': 'Send Message',
-            'icon': 'send',
-            'onTap': () => _handleQuickAction('ble-test'),
-          },
-        ];
-      case 'system-bluetooth':
-        return [
-          {
-            'title': 'Pair Device',
-            'icon': 'bluetooth_connected',
-            'onTap': () => _handleQuickAction('system-bluetooth'),
-          },
-          {
-            'title': 'Send File',
-            'icon': 'file_upload',
-            'onTap': () => _handleQuickAction('system-bluetooth'),
           },
         ];
       case 'bluetooth-classic-messenger':
@@ -449,24 +417,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                                 onTap: () => _handleQuickAction('incident'),
                                 contextualActions:
                                     _getContextualActions('incident'),
-                              ),
-                              QuickActionCardWidget(
-                                title: 'BLE Test',
-                                iconName: 'bluetooth',
-                                statusText: 'Test BLE messaging',
-                                activityCount: 0,
-                                onTap: () => _handleQuickAction('ble-test'),
-                                contextualActions:
-                                    _getContextualActions('ble-test'),
-                              ),
-                              QuickActionCardWidget(
-                                title: 'System Bluetooth',
-                                iconName: 'bluetooth_connected',
-                                statusText: 'Real device pairing',
-                                activityCount: 0,
-                                onTap: () => _handleQuickAction('system-bluetooth'),
-                                contextualActions:
-                                    _getContextualActions('system-bluetooth'),
                               ),
                               QuickActionCardWidget(
                                 title: 'Emergency Messenger',
