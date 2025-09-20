@@ -1,61 +1,13 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import '../ocr_summarizer_clean.dart';
 
-class OCRScreen extends StatefulWidget {
+class OCRScreen extends StatelessWidget {
+  const OCRScreen({super.key});
+
   @override
-  State<OCRScreen> createState() => _OCRScreenState();
-}
-
-class _OCRScreenState extends State<OCRScreen> {
-  final ImagePicker _picker = ImagePicker();
-  File? _image;
-  bool _processing = false;
-  bool _showResult = false;
-  String _raw = '';
-  String _summary = '';
-
-  Future<void> _select(ImageSource src) async {
-    final picked = await _picker.pickImage(source: src, imageQuality: 80);
-    if (picked == null) return;
-    setState(() {
-      _image = File(picked.path);
-      _processing = true;
-      _showResult = false;
-      _raw = '';
-      _summary = '';
-    });
-    await Future.delayed(const Duration(seconds: 1)); // mock OCR
-    _raw = _mockRawText();
-    await Future.delayed(const Duration(seconds: 1)); // mock summary
-    _summary = _mockSummary();
-    setState(() {
-      _processing = false;
-      _showResult = true;
-    });
+  Widget build(BuildContext context) {
+    return const OCRSummarizerPageSimple();
   }
-
-  String _mockRawText() =>
-      'SEVERE CYCLONIC STORM. Winds 120-140 km/h. Coastal evacuation for low zones. Fishermen stay ashore.';
-  String _mockSummary() =>
-      'CYCLONE ALERT:\n1. Move to safer shelter if low area.\n2. Stay indoors tomorrow.\n3. Do not go to sea.\n4. Keep phone charged & supplies ready.';
-
-  void _showPickerSheet() {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      builder: (_) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Camera'),
-              onTap: () {
-                Navigator.pop(context);
-                _select(ImageSource.camera);
-              },
-            ),
-            ListTile(
+}
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Gallery'),
               onTap: () {

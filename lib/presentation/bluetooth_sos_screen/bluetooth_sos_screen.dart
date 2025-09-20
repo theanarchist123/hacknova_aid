@@ -877,7 +877,7 @@ class _BluetoothSosScreenState extends State<BluetoothSosScreen> with TickerProv
                   },
                 ),
                 
-                SizedBox(height: 3.h),
+                SizedBox(height: 2.h),
                 
                 _buildEmergencyButton(
                   'Medical Emergency',
@@ -893,7 +893,7 @@ class _BluetoothSosScreenState extends State<BluetoothSosScreen> with TickerProv
                   },
                 ),
                 
-                SizedBox(height: 3.h),
+                SizedBox(height: 2.h),
                 
                 _buildEmergencyButton(
                   'Fire Emergency',
@@ -909,7 +909,7 @@ class _BluetoothSosScreenState extends State<BluetoothSosScreen> with TickerProv
                   },
                 ),
                 
-                SizedBox(height: 3.h),
+                SizedBox(height: 2.h),
                 
                 _buildEmergencyButton(
                   'Need Rescue',
@@ -939,39 +939,44 @@ class _BluetoothSosScreenState extends State<BluetoothSosScreen> with TickerProv
     Color color,
     VoidCallback onPressed,
   ) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: Colors.white,
-          padding: EdgeInsets.all(4.w),
+          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 3.w),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 8.w),
-            SizedBox(width: 4.w),
+            Icon(icon, size: 7.w),
+            SizedBox(width: 3.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 14.sp,
+                      fontSize: 13.sp,
                       fontWeight: FontWeight.bold,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     description,
                     style: TextStyle(
-                      fontSize: 11.sp,
+                      fontSize: 10.sp,
                       color: Colors.white.withValues(alpha: 0.9),
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

@@ -7,6 +7,7 @@ import '../presentation/incident_reporting_screen/incident_reporting_screen.dart
 import '../presentation/home_dashboard_screen/home_dashboard_screen.dart';
 import '../presentation/comprehensive_dashboard/comprehensive_dashboard_screen.dart';
 import '../presentation/ocr_screen/ocr_screen.dart';
+import '../presentation/ocr_summarizer_clean.dart';
 import '../presentation/bluetooth_sos_screen/bluetooth_sos_screen.dart';
 import '../presentation/speech_qna_screen/speech_qna_screen.dart';
 import '../presentation/disaster_preparedness_screen/disaster_preparedness_screen.dart';
@@ -22,6 +23,7 @@ class AppRoutes {
   static const String homeDashboard = '/home-dashboard-screen';
   static const String comprehensiveDashboard = '/comprehensive-dashboard-screen';
   static const String ocr = '/ocr-screen';
+  static const String ocrSummarizerClean = '/ocr-summarizer-clean';
   static const String bluetoothSOS = '/bluetooth-sos-screen';
   static const String speechQna = '/speech-qna-screen';
   static const String disasterPreparedness = '/disaster-preparedness';
@@ -43,6 +45,7 @@ class AppRoutes {
     homeDashboard: (context) => const HomeDashboardScreen(),
     comprehensiveDashboard: (context) => const ComprehensiveDashboardScreen(),
     ocr: (context) => OCRScreen(),
+    ocrSummarizerClean: (context) => const OCRSummarizerPageSimple(),
     bluetoothSOS: (context) => const BluetoothSosScreen(),
     speechQna: (context) => const SpeechQnaScreen(),
     disasterPreparedness: (context) => const DisasterPreparednessScreen(),

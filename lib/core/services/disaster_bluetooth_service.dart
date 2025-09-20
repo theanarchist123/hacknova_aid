@@ -7,9 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../models/disaster_message.dart';
-import '../models/community_pin.dart';
 import 'message_database.dart';
-import 'community_pin_store.dart';
 
 /// Enhanced Bluetooth service using BLE for reliable disaster relief communication
 /// Implements real BLE communication for device-to-device messaging with GATT server/client
@@ -17,19 +15,6 @@ class DisasterBluetoothService extends ChangeNotifier {
   static final DisasterBluetoothService _instance = DisasterBluetoothService._internal();
   factory DisasterBluetoothService() => _instance;
   DisasterBluetoothService._internal();
-
-  /// Static method to ensure database factory is initialized before any service operations
-  static void ensureDatabaseInitialized() {
-    try {
-      print('🔧 DisasterBluetoothService: Using Sembast store (no factory issues)');
-      // No more sqflite factory setup needed with Sembast!
-      CommunityPinStore.initialize();
-      print('✅ DisasterBluetoothService: Pin store initialization complete');
-    } catch (e) {
-      print('❌ DisasterBluetoothService: Failed to initialize pin store: $e');
-      rethrow;
-    }
-  }
 
   // Custom GATT Service and Characteristic UUIDs for disaster communication
   static const String serviceUuid = "12345678-1234-5678-9012-123456789abc"; // Custom disaster service
@@ -75,17 +60,8 @@ class DisasterBluetoothService extends ChangeNotifier {
   final StreamController<List<BluetoothDevice>> _devicesController = StreamController<List<BluetoothDevice>>.broadcast();
   final StreamController<Map<String, bool>> _connectionStatusController = StreamController<Map<String, bool>>.broadcast();
   
-  // Community pin sync handling
-  CommunityPinStore? _pinDatabase;
-  final StreamController<CommunityPin> _pinSyncController = StreamController<CommunityPin>.broadcast();
-  final Map<String, DateTime> _lastPinSyncTimes = {}; // Track sync times per device
-  bool _isPinSyncEnabled = true;
-  
   // Message queue for failed sends
   final Map<String, List<DisasterMessage>> _messageQueue = {};
-  
-  // Pin sync queue for failed sends
-  final Map<String, List<CommunityPin>> _pinSyncQueue = {};
   
   // Scan subscription
   StreamSubscription<List<ScanResult>>? _scanSubscription;
@@ -98,7 +74,6 @@ class DisasterBluetoothService extends ChangeNotifier {
   Stream<DisasterMessage> get messageStream => _messageController.stream;
   Stream<List<BluetoothDevice>> get devicesStream => _devicesController.stream;
   Stream<Map<String, bool>> get connectionStatusStream => _connectionStatusController.stream;
-  Stream<CommunityPin> get pinSyncStream => _pinSyncController.stream;
   
   // Getters - compatible with BLE API
   bool get bluetoothEnabled => _bluetoothEnabled;
@@ -211,10 +186,6 @@ class DisasterBluetoothService extends ChangeNotifier {
     try {
       debugPrint('🔧 Initializing BLE service...');
       
-      // Initialize Sembast pin store (no factory issues)
-      CommunityPinStore.initialize();
-      debugPrint('✅ Pin store initialized for BLE service');
-      
       // Check if BLE is supported
       if (await FlutterBluePlus.isSupported == false) {
         debugPrint('❌ Bluetooth not supported by this device');
@@ -243,9 +214,6 @@ class DisasterBluetoothService extends ChangeNotifier {
       
       // Initialize message database (ensure it's ready)
       await _messageDb.database;
-      
-      // Initialize community pin database
-      await _initializePinDatabase();
       
       // Start GATT server for receiving messages
       await _setupGattServer();
@@ -966,8 +934,7 @@ class DisasterBluetoothService extends ChangeNotifier {
     try {
       final deviceInfo = DeviceInfoPlugin();
       final androidInfo = await deviceInfo.androidInfo;
-      final model = androidInfo.model;
-      return (model.isNotEmpty) ? model : 'Android Device';
+      return androidInfo.model ?? 'Android Device';
     } catch (e) {
       return 'Unknown Device';
     }
@@ -1029,177 +996,6 @@ class DisasterBluetoothService extends ChangeNotifier {
     }
   }
 
-  // ========== COMMUNITY PIN SYNC METHODS ==========
-  
-  /// Initialize the community pin database
-  Future<void> _initializePinDatabase() async {
-    try {
-      // Use Sembast store - no database factory issues!
-      print('🔧 _initializePinDatabase: Using Sembast store...');
-      _pinDatabase = CommunityPinStore.instance;
-      
-      // Test store access to ensure it's working
-      await _pinDatabase!.database;
-      debugPrint('✅ Community pin store initialized and accessible');
-    } catch (e) {
-      debugPrint('❌ Error initializing pin store: $e');
-      _pinDatabase = null;
-    }
-  }
-
-  /// Enable or disable pin sync functionality
-  void setPinSyncEnabled(bool enabled) {
-    _isPinSyncEnabled = enabled;
-    debugPrint('📍 Pin sync ${enabled ? "enabled" : "disabled"}');
-  }
-
-  /// Sync a new community pin to all connected devices
-  Future<void> syncCommunityPin(CommunityPin pin) async {
-    if (!_isPinSyncEnabled || _pinDatabase == null) return;
-
-    try {
-      // Mark pin as synced to Bluetooth
-      final syncedPin = pin.copyWith(
-        isSyncedToBluetooth: true,
-        syncCount: pin.syncCount + 1,
-      );
-      
-      await _pinDatabase!.updatePin(syncedPin);
-      
-      // Send to all connected devices
-      final pinData = syncedPin.toBluetoothPayload();
-      final pinMessage = DisasterMessage(
-        id: 'pin_${pin.id}',
-        type: MessageType.system,
-        content: 'COMMUNITY_PIN_SYNC',
-        senderName: _userName ?? 'Unknown',
-        senderId: _deviceId ?? 'unknown',
-        timestamp: DateTime.now(),
-        metadata: pinData,
-      );
-
-      for (final deviceId in _connectedDevices.keys) {
-        try {
-          await _sendMessageToDevice(deviceId, pinMessage);
-          _lastPinSyncTimes[deviceId] = DateTime.now();
-        } catch (e) {
-          debugPrint('❌ Failed to sync pin to device $deviceId: $e');
-          // Add to queue for retry
-          _pinSyncQueue.putIfAbsent(deviceId, () => []).add(syncedPin);
-        }
-      }
-
-      debugPrint('📍 Synced community pin: ${pin.title} to ${_connectedDevices.length} devices');
-    } catch (e) {
-      debugPrint('❌ Error syncing community pin: $e');
-    }
-  }
-
-  /// Handle incoming community pin sync from another device
-  Future<void> _handleIncomingPinSync(DisasterMessage message) async {
-    if (!_isPinSyncEnabled || _pinDatabase == null) return;
-
-    try {
-      final pinData = message.metadata;
-      if (pinData == null) return;
-
-      final receivedPin = CommunityPin.fromBluetoothPayload(pinData);
-      
-      // Check if we already have this pin - for now, check by getting all pins
-      final allPins = await _pinDatabase!.getAllPins();
-      final existingPin = allPins.where((p) => p.id == receivedPin.id).firstOrNull;
-      
-      if (existingPin == null) {
-        // New pin - add it
-        await _pinDatabase!.insertPin(receivedPin);
-        _pinSyncController.add(receivedPin);
-        debugPrint('📍 Received new community pin: ${receivedPin.title}');
-      } else {
-        // Check if received pin is newer
-        if (receivedPin.updatedAt.isAfter(existingPin.updatedAt)) {
-          await _pinDatabase!.updatePin(receivedPin);
-          _pinSyncController.add(receivedPin);
-          debugPrint('📍 Updated community pin: ${receivedPin.title}');
-        } else {
-          debugPrint('📍 Ignored older version of pin: ${receivedPin.title}');
-        }
-      }
-    } catch (e) {
-      debugPrint('❌ Error handling incoming pin sync: $e');
-    }
-  }
-
-  /// Sync all unsynced pins to a newly connected device
-  Future<void> _syncAllPinsToDevice(String deviceId) async {
-    if (!_isPinSyncEnabled || _pinDatabase == null) return;
-
-    try {
-      final unsyncedPins = await _pinDatabase!.getPinsNeedingSync();
-      
-      for (final pin in unsyncedPins) {
-        final pinMessage = DisasterMessage(
-          id: 'pin_${pin.id}_initial',
-          type: MessageType.system,
-          content: 'COMMUNITY_PIN_SYNC',
-          senderName: _userName ?? 'Unknown',
-          senderId: _deviceId ?? 'unknown',
-          timestamp: DateTime.now(),
-          metadata: pin.toBluetoothPayload(),
-        );
-
-        try {
-          await _sendMessageToDevice(deviceId, pinMessage);
-          
-          // Mark pin as synced
-          final syncedPin = pin.copyWith(
-            isSyncedToBluetooth: true,
-            syncCount: pin.syncCount + 1,
-          );
-          await _pinDatabase!.updatePin(syncedPin);
-          
-        } catch (e) {
-          debugPrint('❌ Failed to sync pin ${pin.title} to new device: $e');
-          // Add to queue for retry
-          _pinSyncQueue.putIfAbsent(deviceId, () => []).add(pin);
-        }
-      }
-
-      _lastPinSyncTimes[deviceId] = DateTime.now();
-      debugPrint('📍 Synced ${unsyncedPins.length} pins to new device $deviceId');
-    } catch (e) {
-      debugPrint('❌ Error syncing all pins to device: $e');
-    }
-  }
-
-  /// Retry failed pin syncs for a device
-  Future<void> _retryPinSyncs(String deviceId) async {
-    final queuedPins = _pinSyncQueue[deviceId];
-    if (queuedPins == null || queuedPins.isEmpty) return;
-
-    final pinsToRetry = List<CommunityPin>.from(queuedPins);
-    _pinSyncQueue[deviceId]?.clear();
-
-    for (final pin in pinsToRetry) {
-      try {
-        await syncCommunityPin(pin);
-      } catch (e) {
-        debugPrint('❌ Retry failed for pin ${pin.title}: $e');
-        // Re-add to queue
-        _pinSyncQueue.putIfAbsent(deviceId, () => []).add(pin);
-      }
-    }
-  }
-
-  /// Get sync statistics
-  Map<String, dynamic> getPinSyncStats() {
-    return {
-      'enabled': _isPinSyncEnabled,
-      'connected_devices': _connectedDevices.length,
-      'last_sync_times': Map.from(_lastPinSyncTimes),
-      'queued_syncs': _pinSyncQueue.map((k, v) => MapEntry(k, v.length)),
-    };
-  }
-
   /// Dispose of the service with complete cleanup
   @override
   void dispose() {
@@ -1221,13 +1017,11 @@ class DisasterBluetoothService extends ChangeNotifier {
     _validDisasterDevices.clear();
     _messageQueue.clear();
     _deviceStatuses.clear();
-    _pinSyncQueue.clear();
     
     // Close controllers
     _messageController.close();
     _devicesController.close();
     _connectionStatusController.close();
-    _pinSyncController.close();
     
     super.dispose();
     debugPrint('✅ BLE service disposed');

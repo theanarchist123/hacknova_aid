@@ -17,9 +17,9 @@ void main() async {
     CommunityPinStore.initialize();
     print('✅ Database initialized successfully');
     
-    // Ensure Bluetooth service also has database initialized
-    DisasterBluetoothService.ensureDatabaseInitialized();
-    print('✅ Bluetooth service database initialized');
+    // Initialize Bluetooth service (includes database initialization)
+    await DisasterBluetoothService().initialize();
+    print('✅ Bluetooth service initialized');
 
     // REMOVE eager background service start - will start after first frame
     // AlertBackgroundService.startBackgroundMonitoring();
