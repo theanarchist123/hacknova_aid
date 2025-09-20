@@ -11,6 +11,12 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     
+    <!-- SOS Emergency Beacon permissions -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.FLASHLIGHT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    
     <!-- Bluetooth permissions for disaster relief communication -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
@@ -30,6 +36,14 @@
         android:required="true" />
     <uses-feature
         android:name="android.hardware.bluetooth_le"
+        android:required="false" />
+
+    <!-- SOS Emergency Beacon feature declarations -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.flash"
         android:required="false" />
 
     <!-- Queries for checking if maps apps are installed -->

@@ -51,6 +51,14 @@ dependencies:
   file_picker: ^8.0.7
   flutter_tts: ^4.1.0
 
+  # SOS Emergency Beacon dependencies
+  camera: ^0.10.5+9
+  audioplayers: ^6.0.0
+  screen_brightness: ^0.2.2+1
+  wakelock_plus: ^1.2.8
+  vibration: ^2.1.0
+  battery_plus: ^6.2.3
+
 dev_dependencies:
   flutter_test:    # CRITICAL: Required for Flutter project testing - DO NOT REMOVE
     sdk: flutter   # CRITICAL: Required for Flutter project testing - DO NOT REMOVE
@@ -63,6 +71,7 @@ flutter:
   assets:
     - assets/
     - assets/images/
+    - assets/audio/
   # CRITICAL ASSET MANAGEMENT RULES:
   # - DO NOT ADD NEW ASSET DIRECTORIES (assets/svg/, assets/icons/, etc.)
   # - ONLY USE EXISTING AND ITEMS AVAILABLE IN THE DIRECTORIES LISTED ABOVE (assets/, assets/images/)

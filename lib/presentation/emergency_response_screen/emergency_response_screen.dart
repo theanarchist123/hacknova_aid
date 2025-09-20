@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/app_export.dart';
 import '../../core/services/shelter_service.dart';
 import '../../core/services/location_service.dart';
+import '../../core/services/sos_emergency_beacon_service.dart';
 import './widgets/communication_tools_widget.dart';
 import './widgets/emergency_action_card_widget.dart';
 import './widgets/emergency_contacts_widget.dart';
@@ -30,16 +31,31 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
   bool _isLoadingShelters = false;
   Position? _currentPosition;
 
+  // SOS Emergency Beacon Service
+  final SOSEmergencyBeaconService _sosService = SOSEmergencyBeaconService();
+
   @override
   void initState() {
     super.initState();
     _initializeLocationAndShelters();
+    _initializeSOSService();
   }
 
   @override
   void dispose() {
-    // No need to cancel anything specific here since we'll check mounted state
+    // Dispose SOS service when screen is disposed
+    _sosService.dispose();
     super.dispose();
+  }
+
+  /// Initialize SOS Emergency Beacon Service
+  Future<void> _initializeSOSService() async {
+    try {
+      await _sosService.initializeEmergencyBeacon();
+      print('✅ SOS Emergency Beacon Service initialized');
+    } catch (e) {
+      print('⚠️ Failed to initialize SOS service: $e');
+    }
   }
 
   Future<void> _initializeLocationAndShelters() async {
@@ -1041,28 +1057,108 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
     }
   }
 
-  void _toggleSOS() {
-    if (mounted) {
-      setState(() {
-        isSOSActive = !isSOSActive;
-      });
-    }
+  void _toggleSOS() async {
+    try {
+      if (!_sosService.isInitialized) {
+        // Try to initialize if not already done
+        bool initialized = await _sosService.initializeEmergencyBeacon();
+        if (!initialized) {
+          Fluttertoast.showToast(
+            msg: "SOS system initialization failed",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+          return;
+        }
+      }
 
-    if (isSOSActive) {
+      if (isSOSActive) {
+        // Deactivate SOS
+        await _sosService.deactivateSOSBeacon();
+        if (mounted) {
+          setState(() {
+            isSOSActive = false;
+          });
+        }
+        
+        Fluttertoast.showToast(
+          msg: "SOS Emergency Beacon Deactivated",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: AppTheme.textMediumEmphasisLight,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+      } else {
+        // Show confirmation dialog before activating SOS
+        bool? confirmed = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text(
+                'Activate Emergency SOS?',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Text(
+                'This will activate emergency signals including:\n'
+                '• Flashlight SOS pattern\n'
+                '• Emergency siren audio\n'
+                '• Screen flash alerts\n'
+                '• Vibration patterns\n\n'
+                'Only activate in real emergencies.',
+                style: TextStyle(fontSize: 14),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('ACTIVATE SOS'),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (confirmed == true) {
+          // Activate SOS
+          await _sosService.activateSOSBeacon();
+          if (mounted) {
+            setState(() {
+              isSOSActive = true;
+            });
+          }
+          
+          Fluttertoast.showToast(
+            msg: "🆘 SOS EMERGENCY BEACON ACTIVATED",
+            toastLength: Toast.LENGTH_LONG,
+            gravity: ToastGravity.CENTER,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+            fontSize: 18.0,
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ SOS toggle error: $e');
       Fluttertoast.showToast(
-        msg: "SOS ACTIVATED - Broadcasting emergency signal",
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.CENTER,
-        backgroundColor: AppTheme.primaryLight,
-        textColor: Colors.white,
-        fontSize: 18.0,
-      );
-    } else {
-      Fluttertoast.showToast(
-        msg: "SOS signal deactivated",
+        msg: "SOS system error: $e",
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
-        backgroundColor: AppTheme.textMediumEmphasisLight,
+        backgroundColor: Colors.red,
         textColor: Colors.white,
         fontSize: 16.0,
       );
