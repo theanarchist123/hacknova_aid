@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../core/app_export.dart';
 import '../../core/services/disaster_bluetooth_service.dart';
 import '../../core/models/disaster_message.dart';
+import '../../widgets/app_bottom_navigation_bar.dart';
 
 class BluetoothSosScreen extends StatefulWidget {
   const BluetoothSosScreen({super.key});
@@ -380,6 +381,9 @@ class _BluetoothSosScreenState extends State<BluetoothSosScreen> with TickerProv
               label: Text('SOS', style: TextStyle(color: Colors.white)),
             )
           : null,
+      bottomNavigationBar: AppBottomNavigationBar(
+        currentRoute: AppRoutes.bluetoothSOS,
+      ),
     );
   }
 
