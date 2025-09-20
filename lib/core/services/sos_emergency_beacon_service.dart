@@ -135,16 +135,18 @@ class SOSEmergencyBeaconService extends ChangeNotifier {
     }
   }
 
-  /// Initialize audio player for SOS tones
+  /// Initialize audio player for SOS tones and siren
   Future<void> _initializeAudio() async {
     try {
       _audioPlayer = AudioPlayer();
       await _audioPlayer?.setVolume(1.0);
       
-      // Initialize separate player for siren
+      // Initialize separate player for siren audio file
       _sirenPlayer = AudioPlayer();
       await _sirenPlayer?.setVolume(1.0);
       await _sirenPlayer?.setReleaseMode(ReleaseMode.loop);
+      
+      debugPrint('✅ Audio players initialized for MPEG siren');
       
     } catch (e) {
       debugPrint('Audio initialization failed: $e');
@@ -213,6 +215,10 @@ class SOSEmergencyBeaconService extends ChangeNotifier {
       // Start emergency siren
       debugPrint('🚨 Starting emergency siren...');
       await _startSiren();
+
+      // Set system volume to maximum for emergency
+      debugPrint('🔊 Setting maximum system volume...');
+      await _setMaximumVolume();
 
       debugPrint('🆘 SOS BEACON SUCCESSFULLY ACTIVATED');
       return true;
@@ -361,19 +367,17 @@ class SOSEmergencyBeaconService extends ChangeNotifier {
     }
   }
 
-  /// Play SOS tone (800Hz sine wave)
+  /// Play SOS tone (simple beep for Morse code)
   Future<void> _playSOSTone(bool isDot) async {
     try {
-      if (_audioPlayer != null) {
-        // Play system alert sound with haptic feedback
-        await SystemSound.play(SystemSoundType.alert);
-        
-        // For dots, use light impact; for dashes, use heavy impact
-        if (isDot) {
-          await HapticFeedback.lightImpact();
-        } else {
-          await HapticFeedback.heavyImpact();
-        }
+      // Simple system sound for Morse code timing
+      await SystemSound.play(SystemSoundType.click);
+      
+      // For dots, use light impact; for dashes, use heavy impact
+      if (isDot) {
+        await HapticFeedback.lightImpact();
+      } else {
+        await HapticFeedback.heavyImpact();
       }
     } catch (e) {
       debugPrint('❌ Audio tone error: $e');
@@ -383,37 +387,32 @@ class SOSEmergencyBeaconService extends ChangeNotifier {
   /// Start continuous siren sound
   Future<void> _startSiren() async {
     try {
-      debugPrint('🚨 Starting emergency siren');
-      // Since we don't have an audio file, use continuous system alerts
-      _startSystemSiren();
+      debugPrint('🚨 Starting emergency siren with audio file');
+      
+      // Play the MPEG siren file on repeat
+      if (_sirenPlayer != null) {
+        await _sirenPlayer?.setVolume(1.0);
+        await _sirenPlayer?.setReleaseMode(ReleaseMode.loop);
+        await _sirenPlayer?.play(AssetSource('audio/siren.mpeg'));
+        debugPrint('✅ Siren audio file playing');
+      }
+      
     } catch (e) {
       debugPrint('❌ Siren start error: $e');
+      // Fallback to system sounds if audio file fails
+      _startSystemAlertSiren();
     }
   }
 
-  /// Start system-based siren using timer
-  void _startSystemSiren() {
-    _sirenTimer = Timer.periodic(Duration(milliseconds: 800), (timer) {
+  /// Fallback system alert siren if audio file fails
+  void _startSystemAlertSiren() {
+    debugPrint('� Using fallback system alert siren');
+    _sirenTimer = Timer.periodic(Duration(milliseconds: 500), (timer) {
       if (!_isSOSActive) {
         timer.cancel();
-        debugPrint('🔇 Siren timer stopped');
         return;
       }
-      
-      // Play three rapid alerts to create siren effect
       SystemSound.play(SystemSoundType.alert);
-      
-      Future.delayed(Duration(milliseconds: 200), () {
-        if (_isSOSActive) {
-          SystemSound.play(SystemSoundType.alert);
-        }
-      });
-      
-      Future.delayed(Duration(milliseconds: 400), () {
-        if (_isSOSActive) {
-          SystemSound.play(SystemSoundType.alert);
-        }
-      });
     });
   }
 
@@ -438,6 +437,19 @@ class SOSEmergencyBeaconService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Screen flash error: $e');
+    }
+  }
+
+  /// Set maximum system volume for emergency
+  Future<void> _setMaximumVolume() async {
+    try {
+      // Set audio players to maximum volume
+      await _audioPlayer?.setVolume(1.0);
+      await _sirenPlayer?.setVolume(1.0);
+      
+      debugPrint('✅ Audio volume set to maximum for MPEG siren');
+    } catch (e) {
+      debugPrint('❌ Volume control error: $e');
     }
   }
 

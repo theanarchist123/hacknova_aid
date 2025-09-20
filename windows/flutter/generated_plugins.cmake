@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   battery_plus
   connectivity_plus
   file_selector_windows
+  flutter_tts
   geolocator_windows
   permission_handler_windows
   screen_brightness_windows
