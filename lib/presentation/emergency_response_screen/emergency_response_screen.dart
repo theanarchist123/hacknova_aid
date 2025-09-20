@@ -3,6 +3,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:sizer/sizer.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../core/app_export.dart';
 import '../../core/services/shelter_service.dart';
@@ -165,7 +166,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
         "Continue cycles until emergency services arrive"
       ],
       "icon": "favorite",
-      "videoUrl": "https://youtu.be/msRft-g-k_s?si=fhZ36yLUzcKswVdh",
+      "videoUrl": "videos/cpr_emergency_response.webm",
       "videoTitle": "CPR During Disasters Guide",
       "imageGuide": "Show hand placement on chest center, compression depth demonstration"
     },
@@ -185,7 +186,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
         "Seek immediate medical attention for severe wounds"
       ],
       "icon": "healing",
-      "videoUrl": "https://youtu.be/qxH_NzFUwpM?si=_E5_Fkh8OhDoq8fl",
+      "videoUrl": "videos/wound_care_bleeding.webm",
       "videoTitle": "Wound Care and Bleeding Control",
       "imageGuide": "Direct pressure application, pressure point locations, proper bandaging"
     },
@@ -205,7 +206,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
         "Get immediate medical help"
       ],
       "icon": "face",
-      "videoUrl": "https://youtu.be/2ffYeuTjjvI?si=Oq781qq-RDPCYzjj",
+      "videoUrl": "videos/jaw_injury_bandage.webm",
       "videoTitle": "Jaw Injury Bandage Technique",
       "imageGuide": "Jaw support positioning, bandage application, airway protection"
     },
@@ -225,7 +226,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
         "Monitor for shock and transport carefully"
       ],
       "icon": "healing",
-      "videoUrl": "https://youtu.be/sPzXAVNVJr0?si=xL2VfohkGbPaGGI_",
+      "videoUrl": "videos/fracture_stabilization.webm",
       "videoTitle": "Fracture Stabilization Guide",
       "imageGuide": "Splinting techniques, immobilization methods, circulation checks"
     },
@@ -245,7 +246,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
         "Seek immediate medical attention for severe burns"
       ],
       "icon": "local_fire_department",
-      "videoUrl": "https://youtube.com/shorts/v_RuKEnUXOw?si=NSlHCJ_88C0srU-q",
+      "videoUrl": "videos/burn_treatment.webm",
       "videoTitle": "Burn Treatment Guide",
       "imageGuide": "Burn severity assessment, cooling techniques, proper dressing application"
     },
@@ -264,7 +265,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
         "Seek medical attention for deep cuts or signs of infection"
       ],
       "icon": "healing",
-      "videoUrl": "https://youtu.be/4e7evinsfm0?si=FV_cdZxBulHp-1ns",
+      "videoUrl": "videos/cut_treatment.webm",
       "videoTitle": "Cut Treatment Guide",
       "imageGuide": "Wound cleaning technique, bandage application, infection signs"
     },
@@ -285,7 +286,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
         "Document findings and communicate to emergency services"
       ],
       "icon": "personal_injury",
-      "videoUrl": "https://youtu.be/02WhmmkxGKo?si=a8kwxdtnVtKGd_SS",
+      "videoUrl": "videos/head_to_toe_assessment.webm",
       "videoTitle": "Head-to-Toe Assessment Guide",
       "imageGuide": "Systematic assessment technique, vital sign checks, injury documentation"
     },
@@ -305,7 +306,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
         "Get emergency medical help immediately"
       ],
       "icon": "monitor_heart",
-      "videoUrl": "",
+      "videoUrl": "videos/shock_treatment.webm",
       "videoTitle": "Shock Treatment Protocol",
       "imageGuide": "Proper positioning, leg elevation, warming techniques"
     }
@@ -1061,30 +1062,50 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
     }
   }
 
-  Future<void> _launchVideo(String url) async {
-    try {
-      final Uri videoUri = Uri.parse(url);
-      if (await canLaunchUrl(videoUri)) {
-        await launchUrl(
-          videoUri,
-          mode: LaunchMode.externalApplication,
-        );
+  Future<void> _launchVideo(String videoPath) async {
+    if (videoPath.startsWith('videos/')) {
+      // Show video info modal with system player option
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => VideoInfoModal(videoPath: videoPath),
+      );
+    } else if (videoPath.startsWith('http')) {
+      // Launch external URL (fallback for any remaining YouTube links)
+      try {
+        final Uri videoUri = Uri.parse(videoPath);
+        if (await canLaunchUrl(videoUri)) {
+          await launchUrl(
+            videoUri,
+            mode: LaunchMode.externalApplication,
+          );
+          Fluttertoast.showToast(
+            msg: "Opening video guide...",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: AppTheme.successLight,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+        } else {
+          throw 'Could not launch video';
+        }
+      } catch (e) {
+        print('Error launching video: $e');
         Fluttertoast.showToast(
-          msg: "Opening video guide...",
-          toastLength: Toast.LENGTH_SHORT,
+          msg: "Unable to open video. Please try again.",
+          toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
-          backgroundColor: AppTheme.successLight,
+          backgroundColor: AppTheme.primaryLight,
           textColor: Colors.white,
           fontSize: 16.0,
         );
-      } else {
-        throw 'Could not launch video';
       }
-    } catch (e) {
-      print('Error launching video: $e');
+    } else {
       Fluttertoast.showToast(
-        msg: "Unable to open video. Please check your internet connection.",
-        toastLength: Toast.LENGTH_LONG,
+        msg: "Invalid video path",
+        toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
         backgroundColor: AppTheme.primaryLight,
         textColor: Colors.white,
@@ -2498,6 +2519,294 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class VideoInfoModal extends StatelessWidget {
+  final String videoPath;
+
+  const VideoInfoModal({super.key, required this.videoPath});
+
+  String _getVideoTitle(String path) {
+    if (path.contains('cpr_emergency_response')) return 'CPR Emergency Response';
+    if (path.contains('wound_care_bleeding')) return 'Wound Care & Bleeding Control';
+    if (path.contains('jaw_injury_bandage')) return 'Jaw Injury Bandage';
+    if (path.contains('fracture_stabilization')) return 'Fracture Stabilization';
+    if (path.contains('burn_treatment')) return 'Burn Treatment';
+    if (path.contains('cut_treatment')) return 'Cut Treatment';
+    if (path.contains('head_to_toe_assessment')) return 'Head-to-Toe Assessment';
+    if (path.contains('shock_treatment')) return 'Shock Treatment';
+    return 'First Aid Video Guide';
+  }
+
+  String _getVideoDescription(String path) {
+    if (path.contains('cpr_emergency_response')) return 'Learn proper CPR techniques for emergency situations including disasters.';
+    if (path.contains('wound_care_bleeding')) return 'Essential wound care and bleeding control techniques using tourniquets.';
+    if (path.contains('jaw_injury_bandage')) return 'Proper jaw injury bandaging techniques for head trauma situations.';
+    if (path.contains('fracture_stabilization')) return 'Learn how to stabilize fractures and dislocations safely.';
+    if (path.contains('burn_treatment')) return 'Essential burn treatment tips and cooling techniques.';
+    if (path.contains('cut_treatment')) return 'How to treat cuts and grazes with proper first aid techniques.';
+    if (path.contains('head_to_toe_assessment')) return 'Comprehensive clinical assessment guide for emergency situations.';
+    if (path.contains('shock_treatment')) return 'How to recognize and treat shock in emergency situations.';
+    return 'Professional first aid video guide for emergency situations.';
+  }
+
+  Future<void> _openVideoFile(BuildContext context) async {
+    try {
+      String fullPath = 'C:\\Users\\Khushi\\Downloads\\hacknova_aid-flat\\hacknova_aid-flat\\$videoPath';
+      final Uri videoUri = Uri.file(fullPath);
+      
+      if (await canLaunchUrl(videoUri)) {
+        await launchUrl(
+          videoUri,
+          mode: LaunchMode.externalApplication,
+        );
+        Navigator.pop(context);
+      } else {
+        throw 'Could not open video file';
+      }
+    } catch (e) {
+      print('Error opening video: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to open video file. Please check if the file exists.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 70.h,
+      decoration: BoxDecoration(
+        color: AppTheme.lightTheme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: EdgeInsets.all(4.w),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.05),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 12.w,
+                  height: 1.h,
+                  margin: EdgeInsets.only(bottom: 2.h),
+                  decoration: BoxDecoration(
+                    color: AppTheme.lightTheme.colorScheme.onSurface.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(3.w),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.play_circle_filled,
+                        color: Colors.red,
+                        size: 8.w,
+                      ),
+                    ),
+                    SizedBox(width: 4.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _getVideoTitle(videoPath),
+                            style: AppTheme.lightTheme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'First Aid Video Guide',
+                            style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.close,
+                        size: 6.w,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Content
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(4.w),
+              child: Column(
+                children: [
+                  // Video Preview Area
+                  Container(
+                    width: double.infinity,
+                    height: 25.h,
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.video_library,
+                            color: Colors.red,
+                            size: 15.w,
+                          ),
+                          SizedBox(height: 2.h),
+                          Text(
+                            'Video Ready to Play',
+                            style: AppTheme.lightTheme.textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 1.h),
+                          Text(
+                            'Tap the button below to open in your video player',
+                            style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.white70,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 3.h),
+
+                  // Description
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(3.w),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightTheme.primaryColor.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.lightTheme.primaryColor.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: AppTheme.lightTheme.primaryColor,
+                              size: 5.w,
+                            ),
+                            SizedBox(width: 2.w),
+                            Text(
+                              'About This Video',
+                              style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.lightTheme.primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 1.h),
+                        Text(
+                          _getVideoDescription(videoPath),
+                          style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: 3.h),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _openVideoFile(context),
+                          icon: Icon(Icons.play_arrow, size: 6.w),
+                          label: Text(
+                            'Open Video',
+                            style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 3.h),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  SizedBox(height: 2.h),
+
+                  // File Info
+                  Container(
+                    padding: EdgeInsets.all(2.w),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.folder_open,
+                          color: Colors.grey,
+                          size: 4.w,
+                        ),
+                        SizedBox(width: 2.w),
+                        Expanded(
+                          child: Text(
+                            'File: $videoPath',
+                            style: AppTheme.lightTheme.textTheme.bodySmall?.copyWith(
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

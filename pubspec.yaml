@@ -43,6 +43,7 @@ dependencies:
   provider: ^6.1.1
   rxdart: ^0.27.7
   device_info_plus: ^10.1.0
+  video_player: ^2.8.5
 
   # OCR and AI Summarizer dependencies
   google_mlkit_text_recognition: ^0.13.0
@@ -63,6 +64,7 @@ flutter:
   assets:
     - assets/
     - assets/images/
+    - videos/
   # CRITICAL ASSET MANAGEMENT RULES:
   # - DO NOT ADD NEW ASSET DIRECTORIES (assets/svg/, assets/icons/, etc.)
   # - ONLY USE EXISTING AND ITEMS AVAILABLE IN THE DIRECTORIES LISTED ABOVE (assets/, assets/images/)
