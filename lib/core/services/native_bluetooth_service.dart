@@ -165,6 +165,62 @@ class NativeBluetoothService extends ChangeNotifier {
     }
   }
 
+  /// Send message to multiple devices sequentially
+  Future<Map<String, bool>> sendToMultipleDevices(
+    List<Map<String, String>> devices, 
+    String message,
+    {Function(String deviceAddress, String status)? onDeviceUpdate}
+  ) async {
+    Map<String, bool> results = {};
+    
+    try {
+      _status = 'Broadcasting to ${devices.length} devices...';
+      notifyListeners();
+
+      for (int i = 0; i < devices.length; i++) {
+        final device = devices[i];
+        final deviceAddress = device['address']!;
+        final deviceName = device['name'] ?? 'Unknown';
+        
+        _status = 'Sending to $deviceName (${i + 1}/${devices.length})...';
+        notifyListeners();
+        
+        // Update individual device status
+        onDeviceUpdate?.call(deviceAddress, '📤 Sending...');
+        
+        try {
+          final success = await sendFileViaBluetoothSystem(deviceAddress, message);
+          results[deviceAddress] = success;
+          
+          if (success) {
+            onDeviceUpdate?.call(deviceAddress, '✅ Sent successfully');
+          } else {
+            onDeviceUpdate?.call(deviceAddress, '❌ Failed to send');
+          }
+          
+          // Small delay between sends to avoid overwhelming the system
+          if (i < devices.length - 1) {
+            await Future.delayed(const Duration(milliseconds: 1500));
+          }
+          
+        } catch (e) {
+          results[deviceAddress] = false;
+          onDeviceUpdate?.call(deviceAddress, '❌ Error: $e');
+        }
+      }
+      
+      final successCount = results.values.where((success) => success).length;
+      _status = 'Broadcast complete: $successCount/${devices.length} successful';
+      notifyListeners();
+      
+      return results;
+    } catch (e) {
+      _status = 'Broadcast failed: $e';
+      notifyListeners();
+      return results;
+    }
+  }
+
   /// Check and request all necessary Bluetooth permissions
   Future<bool> checkAndRequestPermissions() async {
     try {
