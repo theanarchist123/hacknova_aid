@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 
-import '../../core/app_export.dart';
-import '../../routes/app_routes.dart';
+import '../core/app_export.dart';
 
 class AppBottomNavigationBar extends StatelessWidget {
   final String currentRoute;

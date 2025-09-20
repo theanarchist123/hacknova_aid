@@ -99,8 +99,35 @@ class _MapSearchBarState extends State<MapSearchBar> {
         
         if (data['predictions'] != null && data['predictions'].isNotEmpty) {
           print('✅ Found ${data['predictions'].length} Google Places suggestions');
+          
+          // Process predictions to show full addresses
+          List<Map<String, dynamic>> processedSuggestions = [];
+          for (var prediction in data['predictions']) {
+            String mainText = prediction['structured_formatting']?['main_text'] ?? prediction['description'] ?? '';
+            String secondaryText = prediction['structured_formatting']?['secondary_text'] ?? '';
+            String fullDescription = prediction['description'] ?? '';
+            
+            // Ensure we have a complete address description
+            if (fullDescription.isEmpty) {
+              fullDescription = mainText;
+              if (secondaryText.isNotEmpty) {
+                fullDescription += ', $secondaryText';
+              }
+            }
+            
+            processedSuggestions.add({
+              'description': fullDescription,
+              'place_id': prediction['place_id'],
+              'structured_formatting': {
+                'main_text': mainText,
+                'secondary_text': secondaryText.isNotEmpty ? secondaryText : 'India'
+              },
+              'types': prediction['types'] ?? [],
+            });
+          }
+          
           setState(() {
-            _suggestions = List<Map<String, dynamic>>.from(data['predictions']);
+            _suggestions = processedSuggestions;
             _showSuggestions = true;
           });
           return true;
@@ -236,7 +263,7 @@ class _MapSearchBarState extends State<MapSearchBar> {
   Future<bool> _tryGooglePlaceDetails(String placeId, String description) async {
     try {
       const String apiKey = 'AIzaSyAxASAVnfdE_c9Axulg_dG0TBcTWGaN79I';
-      final url = 'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&fields=geometry&key=$apiKey';
+      final url = 'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&fields=geometry,name,formatted_address,types&key=$apiKey';
 
       print('Attempting Google Place Details API call...');
       final response = await http.get(
@@ -266,15 +293,20 @@ class _MapSearchBarState extends State<MapSearchBar> {
         }
         
         if (data['result'] != null && data['result']['geometry'] != null) {
-          final location = data['result']['geometry']['location'];
+          final result = data['result'];
+          final location = result['geometry']['location'];
           final lat = location['lat']?.toDouble() ?? 0.0;
           final lng = location['lng']?.toDouble() ?? 0.0;
           
-          print('✅ Found place coordinates: $lat, $lng');
-          widget.onLocationSelected?.call(lat, lng, description);
+          // Use formatted address if available, otherwise use the original description
+          String locationName = result['formatted_address'] ?? result['name'] ?? description;
           
-          // Clear search
+          print('✅ Found place coordinates: $lat, $lng for $locationName');
+          widget.onLocationSelected?.call(lat, lng, locationName);
+          
+          // Clear search and close suggestions
           _searchController.clear();
+          _focusNode.unfocus();
           setState(() {
             _isSearching = false;
             _showSuggestions = false;

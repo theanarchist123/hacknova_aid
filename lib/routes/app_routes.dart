@@ -8,7 +8,7 @@ import '../presentation/home_dashboard_screen/home_dashboard_screen.dart';
 import '../presentation/comprehensive_dashboard/comprehensive_dashboard_screen.dart';
 import '../presentation/ocr_screen/ocr_screen.dart';
 import '../presentation/ocr_summarizer_clean.dart';
-import '../presentation/bluetooth_sos_screen/bluetooth_sos_screen.dart';
+import '../presentation/bluetooth_classic_messenger_screen.dart';
 import '../presentation/speech_qna_screen/speech_qna_screen.dart';
 import '../presentation/disaster_preparedness_screen/disaster_preparedness_screen.dart';
 
@@ -46,7 +46,7 @@ class AppRoutes {
     comprehensiveDashboard: (context) => const ComprehensiveDashboardScreen(),
     ocr: (context) => OCRScreen(),
     ocrSummarizerClean: (context) => const OCRSummarizerPageSimple(),
-    bluetoothSOS: (context) => const BluetoothSosScreen(),
+    bluetoothSOS: (context) => const BluetoothClassicMessengerScreen(),
     speechQna: (context) => const SpeechQnaScreen(),
     disasterPreparedness: (context) => const DisasterPreparednessScreen(),
     // TODO: Add your other routes here

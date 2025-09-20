@@ -65,7 +65,7 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
   CommunityPinStore? _pinDatabase;
   bool _isLoadingPins = false;
   CommunityPin? _selectedPin;
-  bool _showCommunityPins = true;
+  final bool _showCommunityPins = true;
   PinFilterOptions _filterOptions = PinFilterOptions.defaultFilters();
   bool _showPinSearch = false;
 
@@ -112,6 +112,85 @@ class _InteractiveMapScreenState extends State<InteractiveMapScreen>
       'radius': 5,
       'status': 'Monitoring',
       'timestamp': DateTime.now().subtract(const Duration(hours: 6)),
+    },
+  ];
+
+  // Evacuation routes mock data
+  final List<Map<String, dynamic>> _evacuationRoutes = [
+    {
+      'id': 1,
+      'name': 'Primary Evacuation Route',
+      'type': 'evacuation_route',
+      'startLatitude': 28.6139,
+      'startLongitude': 77.2090,
+      'endLatitude': 28.6300,
+      'endLongitude': 77.2200,
+      'waypoints': [
+        {'latitude': 28.6200, 'longitude': 77.2150},
+        {'latitude': 28.6250, 'longitude': 77.2180},
+      ],
+      'status': 'Clear',
+      'capacity': 'High',
+      'description': 'Main route to community center',
+    },
+    {
+      'id': 2,
+      'name': 'Secondary Evacuation Route',
+      'type': 'evacuation_route',
+      'startLatitude': 28.6000,
+      'startLongitude': 77.2000,
+      'endLatitude': 28.6200,
+      'endLongitude': 77.2300,
+      'waypoints': [
+        {'latitude': 28.6100, 'longitude': 77.2100},
+        {'latitude': 28.6150, 'longitude': 77.2200},
+      ],
+      'status': 'Partially Blocked',
+      'capacity': 'Medium',
+      'description': 'Alternative route via main road',
+    },
+  ];
+
+  // Safe zones mock data
+  final List<Map<String, dynamic>> _safeZones = [
+    {
+      'id': 1,
+      'name': 'Central Safe Zone',
+      'type': 'safe_zone',
+      'latitude': 28.6400,
+      'longitude': 77.2100,
+      'radius': 500, // meters
+      'capacity': 1000,
+      'currentOccupancy': 250,
+      'facilities': ['Medical Aid', 'Food Distribution', 'Communication Center'],
+      'status': 'Active',
+      'description': 'Primary safe zone with full facilities',
+    },
+    {
+      'id': 2,
+      'name': 'Northern Safe Zone',
+      'type': 'safe_zone',
+      'latitude': 28.6600,
+      'longitude': 77.2000,
+      'radius': 300,
+      'capacity': 500,
+      'currentOccupancy': 150,
+      'facilities': ['Emergency Shelter', 'Water Supply'],
+      'status': 'Active',
+      'description': 'Secondary safe zone for overflow',
+    },
+    {
+      'id': 3,
+      'name': 'Eastern Safe Zone',
+      'type': 'safe_zone',
+      'latitude': 28.6200,
+      'longitude': 77.2500,
+      'radius': 400,
+      'capacity': 750,
+      'currentOccupancy': 0,
+      'facilities': ['Emergency Supplies', 'First Aid'],
+      'status': 'Standby',
+      'description': 'Emergency backup safe zone',
     },
   ];
 
@@ -1157,7 +1236,7 @@ Shared via HackNova Aid Emergency App
                   ],
                 ),
                 child: CustomIconWidget(
-                  iconName: 'local_hotel',
+                  iconName: 'home',
                   color: Colors.white,
                   size: 20,
                 ),
@@ -1232,6 +1311,120 @@ Shared via HackNova Aid Emergency App
                   iconName: 'restaurant',
                   color: Colors.white,
                   size: 20,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    // Evacuation route markers
+    if (_filterStates['evacuation_routes'] == true) {
+      for (final route in _evacuationRoutes) {
+        // Add markers for start and end points of evacuation routes
+        markers.add(
+          Marker(
+            point: LatLng(route['startLatitude'] as double, route['startLongitude'] as double),
+            width: 40,
+            height: 40,
+            child: GestureDetector(
+              onTap: () => _showEvacuationRouteDetails(route),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2196F3),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.shadowColor,
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: CustomIconWidget(
+                  iconName: 'directions_run',
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        );
+        
+        // Add marker for end point
+        markers.add(
+          Marker(
+            point: LatLng(route['endLatitude'] as double, route['endLongitude'] as double),
+            width: 40,
+            height: 40,
+            child: GestureDetector(
+              onTap: () => _showEvacuationRouteDetails(route),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4CAF50),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.shadowColor,
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: CustomIconWidget(
+                  iconName: 'flag',
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    // Safe zone markers
+    if (_filterStates['safe_zones'] == true) {
+      for (final safeZone in _safeZones) {
+        Color zoneColor;
+        switch (safeZone['status'] as String) {
+          case 'Active':
+            zoneColor = const Color(0xFF4CAF50);
+            break;
+          case 'Standby':
+            zoneColor = const Color(0xFFFFA000);
+            break;
+          default:
+            zoneColor = const Color(0xFF757575);
+        }
+        
+        markers.add(
+          Marker(
+            point: LatLng(safeZone['latitude'] as double, safeZone['longitude'] as double),
+            width: 50,
+            height: 50,
+            child: GestureDetector(
+              onTap: () => _showSafeZoneDetails(safeZone),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: zoneColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: zoneColor.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: CustomIconWidget(
+                  iconName: 'shield',
+                  color: Colors.white,
+                  size: 24,
                 ),
               ),
             ),
@@ -1639,6 +1832,156 @@ Shared via HackNova Aid Emergency App
             const SizedBox(height: 16),
             Text('Rating: ${foodCenter['rating'] ?? 'Not rated'}/5'),
             Text('Type: Food Distribution / Relief Center'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEvacuationRouteDetails(Map<String, dynamic> route) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              route['name'] ?? 'Evacuation Route',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Text('Status: ${route['status'] ?? 'Unknown'}'),
+            const SizedBox(height: 8),
+            Text('Capacity: ${route['capacity'] ?? 'Unknown'}'),
+            const SizedBox(height: 8),
+            Text('Description: ${route['description'] ?? 'No description available'}'),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Navigate to route
+                    },
+                    icon: const Icon(Icons.directions),
+                    label: const Text('Follow Route'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Share route
+                    },
+                    icon: const Icon(Icons.share),
+                    label: const Text('Share'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSafeZoneDetails(Map<String, dynamic> safeZone) {
+    final occupancyRate = (safeZone['currentOccupancy'] as int) / (safeZone['capacity'] as int);
+    final facilities = safeZone['facilities'] as List<dynamic>;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              safeZone['name'] ?? 'Safe Zone',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: safeZone['status'] == 'Active' ? Colors.green : Colors.orange,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    safeZone['status'] ?? 'Unknown',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${safeZone['currentOccupancy']}/${safeZone['capacity']} people',
+                  style: TextStyle(
+                    color: occupancyRate > 0.8 ? Colors.red : Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Radius: ${safeZone['radius']} meters'),
+            const SizedBox(height: 8),
+            Text('Description: ${safeZone['description'] ?? 'No description available'}'),
+            const SizedBox(height: 16),
+            const Text('Available Facilities:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: facilities.map((facility) => Chip(
+                label: Text(facility.toString()),
+                backgroundColor: Colors.blue.shade50,
+              )).toList(),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Navigate to safe zone
+                    },
+                    icon: const Icon(Icons.directions),
+                    label: const Text('Navigate'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Contact safe zone
+                    },
+                    icon: const Icon(Icons.call),
+                    label: const Text('Contact'),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
