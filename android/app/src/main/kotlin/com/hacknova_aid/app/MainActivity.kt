@@ -2,6 +2,7 @@ package com.hacknova_aid.app
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothSocket
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -83,6 +84,15 @@ class MainActivity: FlutterFragmentActivity() {
                     val message = call.argument<String>("message")
                     if (deviceAddress != null && message != null) {
                         sendFileViaBluetoothSystem(deviceAddress, message, result)
+                    } else {
+                        result.error("INVALID_ARGUMENT", "Device address and message are required", null)
+                    }
+                }
+                "sendDirectToBluetooth" -> {
+                    val deviceAddress = call.argument<String>("deviceAddress")
+                    val message = call.argument<String>("message")
+                    if (deviceAddress != null && message != null) {
+                        sendDirectToBluetooth(deviceAddress, message, result)
                     } else {
                         result.error("INVALID_ARGUMENT", "Device address and message are required", null)
                     }
@@ -187,6 +197,84 @@ class MainActivity: FlutterFragmentActivity() {
         } catch (e: Exception) {
             result.error("SEND_ERROR", "Error sending file: ${e.message}", null)
         }
+    }
+
+    private fun sendDirectToBluetooth(deviceAddress: String, message: String, result: MethodChannel.Result) {
+        Thread {
+            try {
+                // Get the device
+                val device = bluetoothAdapter.getRemoteDevice(deviceAddress)
+                
+                // Check if device is paired
+                if (device.bondState != BluetoothDevice.BOND_BONDED) {
+                    result.error("NOT_PAIRED", "Device is not paired. Please pair first.", null)
+                    return@Thread
+                }
+
+                // Use standard UUID for Serial Port Profile (SPP)
+                val uuid = java.util.UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+                
+                var bluetoothSocket: BluetoothSocket? = null
+                try {
+                    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED && 
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        result.error("PERMISSION_DENIED", "Bluetooth connect permission required", null)
+                        return@Thread
+                    }
+                    
+                    // Create socket and connect
+                    bluetoothSocket = device.createRfcommSocketToServiceRecord(uuid)
+                    
+                    // Cancel discovery to improve connection performance
+                    if (bluetoothAdapter.isDiscovering) {
+                        bluetoothAdapter.cancelDiscovery()
+                    }
+                    
+                    bluetoothSocket.connect()
+                    
+                    // Prepare message with metadata
+                    val formattedMessage = buildString {
+                        append("=== DISASTER AID MESSAGE ===\n")
+                        append("Time: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}\n")
+                        append("From: HackNova Disaster Aid App\n")
+                        append("---\n")
+                        append(message)
+                        append("\n---\n")
+                        append("Emergency Contact: [Add emergency contact here]\n")
+                        append("=== END MESSAGE ===\n")
+                    }
+                    
+                    // Send message
+                    val outputStream = bluetoothSocket.outputStream
+                    outputStream.write(formattedMessage.toByteArray())
+                    outputStream.flush()
+                    
+                    // Wait a moment to ensure message is sent
+                    Thread.sleep(500)
+                    
+                    result.success("Message sent directly to device")
+                    
+                } catch (e: Exception) {
+                    when (e) {
+                        is java.io.IOException -> {
+                            result.error("CONNECTION_FAILED", "Failed to connect to device: ${e.message}", null)
+                        }
+                        else -> {
+                            result.error("SEND_FAILED", "Failed to send message: ${e.message}", null)
+                        }
+                    }
+                } finally {
+                    try {
+                        bluetoothSocket?.close()
+                    } catch (e: Exception) {
+                        // Ignore close errors
+                    }
+                }
+                
+            } catch (e: Exception) {
+                result.error("DEVICE_ERROR", "Error accessing device: ${e.message}", null)
+            }
+        }.start()
     }
 
     private fun getBondedDevices(result: MethodChannel.Result) {

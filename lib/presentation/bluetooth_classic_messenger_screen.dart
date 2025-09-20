@@ -450,19 +450,19 @@ class _BluetoothClassicMessengerScreenState extends State<BluetoothClassicMessen
 
     try {
       if (_selectedDevices.length == 1) {
-        // Single device - use simple method
+        // Single device - use system dialog (gives user options)
         final deviceAddress = _selectedDevices.first['address']!;
         final success = await _bluetoothService.sendFileViaBluetoothSystem(deviceAddress, message);
         
         setState(() {
           _messages.add('📤 $message (to ${_selectedDevices.first['name']})');
           _messageController.clear();
-          _deliveryStatus[deviceAddress] = success ? '✅ Delivered' : '❌ Failed';
+          _deliveryStatus[deviceAddress] = success ? '✅ Dialog opened' : '❌ Failed';
         });
         
-        _showSnackBar(success ? 'Message sent' : 'Failed to send message');
+        _showSnackBar(success ? 'Bluetooth sharing dialog opened' : 'Failed to open sharing dialog');
       } else {
-        // Multiple devices - use broadcast method
+        // Multiple devices - use direct communication (no user dialogs)
         setState(() {
           _messages.add('📤 Broadcasting: $message (to ${_selectedDevices.length} devices)');
           _messageController.clear();
@@ -479,7 +479,7 @@ class _BluetoothClassicMessengerScreenState extends State<BluetoothClassicMessen
         );
 
         final successCount = results.values.where((success) => success).length;
-        _showSnackBar('Broadcast complete: $successCount/${_selectedDevices.length} devices reached');
+        _showSnackBar('Direct broadcast complete: $successCount/${_selectedDevices.length} devices reached');
       }
       
       _scrollToBottom();
@@ -507,9 +507,9 @@ class _BluetoothClassicMessengerScreenState extends State<BluetoothClassicMessen
         final success = await _bluetoothService.sendFileViaBluetoothSystem(deviceAddress, sosMessage);
         setState(() {
           _messages.add('📤 $sosMessage (to ${_selectedDevices.first['name']})');
-          _deliveryStatus[deviceAddress] = success ? '✅ SOS Delivered' : '❌ SOS Failed';
+          _deliveryStatus[deviceAddress] = success ? '✅ SOS Dialog opened' : '❌ SOS Failed';
         });
-        _showSnackBar(success ? 'SOS sent' : 'Failed to send SOS');
+        _showSnackBar(success ? 'SOS sharing dialog opened' : 'Failed to open SOS dialog');
       } else {
         setState(() {
           _messages.add('📤 Broadcasting SOS to ${_selectedDevices.length} devices');
@@ -526,7 +526,7 @@ class _BluetoothClassicMessengerScreenState extends State<BluetoothClassicMessen
         );
 
         final successCount = results.values.where((success) => success).length;
-        _showSnackBar('SOS Broadcast: $successCount/${_selectedDevices.length} devices reached');
+        _showSnackBar('Direct SOS Broadcast: $successCount/${_selectedDevices.length} devices reached');
       }
       
       _scrollToBottom();
@@ -554,9 +554,9 @@ class _BluetoothClassicMessengerScreenState extends State<BluetoothClassicMessen
         final success = await _bluetoothService.sendFileViaBluetoothSystem(deviceAddress, locationMessage);
         setState(() {
           _messages.add('📤 $locationMessage (to ${_selectedDevices.first['name']})');
-          _deliveryStatus[deviceAddress] = success ? '✅ Location Sent' : '❌ Location Failed';
+          _deliveryStatus[deviceAddress] = success ? '✅ Location Dialog opened' : '❌ Location Failed';
         });
-        _showSnackBar(success ? 'Location sent' : 'Failed to send location');
+        _showSnackBar(success ? 'Location sharing dialog opened' : 'Failed to open location dialog');
       } else {
         setState(() {
           _messages.add('📤 Broadcasting location to ${_selectedDevices.length} devices');
@@ -573,7 +573,7 @@ class _BluetoothClassicMessengerScreenState extends State<BluetoothClassicMessen
         );
 
         final successCount = results.values.where((success) => success).length;
-        _showSnackBar('Location Broadcast: $successCount/${_selectedDevices.length} devices reached');
+        _showSnackBar('Direct Location Broadcast: $successCount/${_selectedDevices.length} devices reached');
       }
       
       _scrollToBottom();

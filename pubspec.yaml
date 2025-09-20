@@ -42,6 +42,14 @@ dependencies:
   rxdart: ^0.27.7
   device_info_plus: ^10.1.0
   path_provider: ^2.1.1  # Add this for file storage
+  
+  # SOS Emergency Beacon dependencies
+  camera: ^0.10.5+9
+  audioplayers: ^6.0.0
+  screen_brightness: ^0.2.2+1
+  wakelock_plus: ^1.2.8
+  vibration: ^2.0.0
+  battery_plus: ^6.0.1
 
 dev_dependencies:
   flutter_test:
@@ -50,6 +58,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
   assets:
     - assets/
     - assets/images/
+    - assets/sounds/
+    - assets/audio/

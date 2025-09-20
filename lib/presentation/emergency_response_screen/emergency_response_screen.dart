@@ -3,10 +3,12 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:sizer/sizer.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:vibration/vibration.dart';
 
 import '../../core/app_export.dart';
 import '../../core/services/shelter_service.dart';
 import '../../core/services/location_service.dart';
+import '../../core/services/sos_emergency_beacon_service.dart';
 import './widgets/communication_tools_widget.dart';
 import './widgets/emergency_action_card_widget.dart';
 import './widgets/emergency_contacts_widget.dart';
@@ -26,6 +28,7 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
 
   // Real-time shelter service
   final ShelterService _shelterService = ShelterService();
+  final SOSEmergencyBeaconService _sosService = SOSEmergencyBeaconService();
   List<Map<String, dynamic>> shelterData = [];
   bool _isLoadingShelters = false;
   Position? _currentPosition;
@@ -34,12 +37,95 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
   void initState() {
     super.initState();
     _initializeLocationAndShelters();
+    _initializeSOSService();
+    _testBasicVibration();
+  }
+
+  /// Test basic vibration functionality on screen load
+  Future<void> _testBasicVibration() async {
+    try {
+      print('🧪 Testing basic vibration functionality...');
+      
+      // Wait a bit for the screen to load
+      await Future.delayed(Duration(seconds: 2));
+      
+      if (await Vibration.hasVibrator() ?? false) {
+        print('✅ Device has vibrator, testing vibration...');
+        await Vibration.vibrate(duration: 500);
+        print('✅ Test vibration completed');
+        
+        Fluttertoast.showToast(
+          msg: "✅ Vibration working!",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+        );
+      } else {
+        print('❌ Device does not have vibrator');
+        Fluttertoast.showToast(
+          msg: "❌ No vibrator detected",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.orange,
+          textColor: Colors.white,
+        );
+      }
+    } catch (e) {
+      print('❌ Vibration test error: $e');
+      Fluttertoast.showToast(
+        msg: "❌ Vibration test failed: $e",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    }
+  }
+
+  /// Test direct vibration without SOS service
+  Future<void> _testDirectVibration() async {
+    try {
+      print('🧪 Direct vibration test triggered');
+      if (await Vibration.hasVibrator() ?? false) {
+        await Vibration.vibrate(duration: 1000, amplitude: 255);
+        print('✅ Direct vibration test completed');
+        Fluttertoast.showToast(
+          msg: "Direct vibration test completed",
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.blue,
+          textColor: Colors.white,
+        );
+      } else {
+        print('❌ No vibrator for direct test');
+      }
+    } catch (e) {
+      print('❌ Direct vibration test error: $e');
+    }
   }
 
   @override
   void dispose() {
-    // No need to cancel anything specific here since we'll check mounted state
+    _sosService.removeListener(_onSOSServiceUpdate);
+    _sosService.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeSOSService() async {
+    try {
+      await _sosService.initialize();
+      _sosService.addListener(_onSOSServiceUpdate);
+    } catch (e) {
+      print('Error initializing SOS service: $e');
+    }
+  }
+
+  void _onSOSServiceUpdate() {
+    if (mounted) {
+      setState(() {
+        isSOSActive = _sosService.isSOSActive;
+      });
+    }
   }
 
   Future<void> _initializeLocationAndShelters() async {
@@ -232,17 +318,21 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                         height: 40.w,
                         decoration: BoxDecoration(
                           color: isSOSActive
-                              ? AppTheme.primaryLight
+                              ? Colors.red[700]
                               : AppTheme.primaryLight.withValues(alpha: 0.8),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color:
-                                  AppTheme.primaryLight.withValues(alpha: 0.4),
-                              blurRadius: isSOSActive ? 20 : 10,
-                              spreadRadius: isSOSActive ? 5 : 2,
+                              color: isSOSActive 
+                                  ? Colors.red.withValues(alpha: 0.6)
+                                  : AppTheme.primaryLight.withValues(alpha: 0.4),
+                              blurRadius: isSOSActive ? 25 : 10,
+                              spreadRadius: isSOSActive ? 8 : 2,
                             ),
                           ],
+                          border: isSOSActive 
+                            ? Border.all(color: Colors.white, width: 3)
+                            : null,
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -262,19 +352,67 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
                                 letterSpacing: 2,
                               ),
                             ),
+                            if (isSOSActive) ...[
+                              SizedBox(height: 0.5.h),
+                              Text(
+                                'CYCLE ${_sosService.currentCycle}',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 8.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
                     ),
                     SizedBox(height: 2.h),
-                    Text(
-                      isSOSActive
-                          ? 'SOS signal is broadcasting your location'
-                          : 'Tap to send emergency SOS signal',
-                      textAlign: TextAlign.center,
-                      style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textMediumEmphasisLight,
-                      ),
+                    Column(
+                      children: [
+                        Text(
+                          isSOSActive
+                              ? '🆘 EMERGENCY BEACON BROADCASTING'
+                              : 'Tap to activate emergency SOS beacon',
+                          textAlign: TextAlign.center,
+                          style: AppTheme.lightTheme.textTheme.bodyMedium?.copyWith(
+                            color: isSOSActive ? Colors.red[700] : AppTheme.textMediumEmphasisLight,
+                            fontWeight: isSOSActive ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        if (isSOSActive) ...[
+                          SizedBox(height: 1.h),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.flash_on, color: Colors.orange, size: 4.w),
+                              SizedBox(width: 1.w),
+                              Icon(Icons.volume_up, color: Colors.blue, size: 4.w),
+                              SizedBox(width: 1.w),
+                              Icon(Icons.brightness_high, color: Colors.yellow, size: 4.w),
+                              SizedBox(width: 1.w),
+                              Icon(Icons.vibration, color: Colors.purple, size: 4.w),
+                            ],
+                          ),
+                          SizedBox(height: 0.5.h),
+                          Text(
+                            'Battery: ${_sosService.batteryLevel}% • ${_sosService.status}',
+                            style: TextStyle(
+                              color: AppTheme.textMediumEmphasisLight,
+                              fontSize: 10.sp,
+                            ),
+                          ),
+                        ] else if (_sosService.isInitialized) ...[
+                          SizedBox(height: 1.h),
+                          Text(
+                            'Battery: ${_sosService.batteryLevel}% • Emergency beacon ready',
+                            style: TextStyle(
+                              color: AppTheme.textMediumEmphasisLight,
+                              fontSize: 10.sp,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -1041,31 +1179,261 @@ class _EmergencyResponseScreenState extends State<EmergencyResponseScreen> {
     }
   }
 
-  void _toggleSOS() {
-    if (mounted) {
-      setState(() {
-        isSOSActive = !isSOSActive;
-      });
-    }
-
-    if (isSOSActive) {
+  void _toggleSOS() async {
+    print('🆘 SOS Toggle button clicked - isSOSActive: $isSOSActive');
+    
+    if (!_sosService.isInitialized) {
+      print('⚠️ SOS Service not initialized');
       Fluttertoast.showToast(
-        msg: "SOS ACTIVATED - Broadcasting emergency signal",
-        toastLength: Toast.LENGTH_LONG,
+        msg: "Initializing emergency beacon...",
+        toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.CENTER,
         backgroundColor: AppTheme.primaryLight,
         textColor: Colors.white,
-        fontSize: 18.0,
+        fontSize: 16.0,
       );
-    } else {
+      return;
+    }
+
+    try {
+      if (isSOSActive) {
+        print('🛑 Deactivating SOS beacon');
+        // Deactivate SOS beacon
+        await _sosService.deactivateSOSBeacon();
+        Fluttertoast.showToast(
+          msg: "SOS emergency beacon deactivated",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: AppTheme.textMediumEmphasisLight,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+      } else {
+        print('🆘 Activating SOS beacon');
+        // Show confirmation dialog for activation
+        final confirmed = await _showSOSConfirmationDialog();
+        print('📋 SOS Confirmation result: $confirmed');
+        if (confirmed) {
+          // Activate SOS beacon with 3-second hold simulation
+          await _activateSOSWithConfirmation();
+        }
+      }
+    } catch (e) {
+      print('❌ SOS beacon error: $e');
       Fluttertoast.showToast(
-        msg: "SOS signal deactivated",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        backgroundColor: AppTheme.textMediumEmphasisLight,
+        msg: "SOS beacon error: $e",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.red,
         textColor: Colors.white,
         fontSize: 16.0,
       );
     }
+  }
+
+  Future<bool> _showSOSConfirmationDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.red[900],
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.white, size: 6.w),
+              SizedBox(width: 2.w),
+              Text(
+                'EMERGENCY SOS',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18.sp,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This will activate emergency beacon with:',
+                style: TextStyle(color: Colors.white, fontSize: 14.sp),
+              ),
+              SizedBox(height: 2.h),
+              ...[ 
+                '📱 Flashlight SOS strobe',
+                '� Emergency siren audio',  
+                '�🔊 Emergency audio alerts',  
+                '💡 Screen flash signals',
+                '📳 Vibration patterns',
+                '🔋 Battery monitoring',
+                '⏰ Auto-stop after 30 minutes'
+              ].map((feature) => Padding(
+                padding: EdgeInsets.only(bottom: 1.h),
+                child: Text(
+                  feature,
+                  style: TextStyle(color: Colors.white70, fontSize: 12.sp),
+                ),
+              )),
+              SizedBox(height: 2.h),
+              Container(
+                padding: EdgeInsets.all(3.w),
+                decoration: BoxDecoration(
+                  color: Colors.orange[900],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Battery Level: ${_sosService.batteryLevel}%\nOnly use in real emergencies!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[700],
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'ACTIVATE SOS',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+  }
+
+  Future<void> _activateSOSWithConfirmation() async {
+    print('⏳ Starting SOS activation countdown');
+    // Show 3-second countdown
+    for (int i = 3; i > 0; i--) {
+      print('⏳ SOS Activating in $i...');
+      Fluttertoast.showToast(
+        msg: "SOS Activating in $i...",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 20.0,
+      );
+      await Future.delayed(Duration(seconds: 1));
+    }
+
+    print('🚀 Calling SOS service activation');
+    // Activate the SOS beacon
+    final success = await _sosService.activateSOSBeacon();
+    print('📊 SOS activation result: $success');
+    
+    if (success) {
+      print('✅ SOS beacon activated successfully');
+      Fluttertoast.showToast(
+        msg: "🆘 EMERGENCY SOS BEACON ACTIVE 🆘\nSiren • Flash • Audio • Screen • Vibration",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.red[700],
+        textColor: Colors.white,
+        fontSize: 18.0,
+      );
+      
+      // Show emergency stop dialog
+      _showEmergencyStopDialog();
+    } else {
+      print('❌ SOS beacon activation failed');
+      Fluttertoast.showToast(
+        msg: "Failed to activate SOS beacon",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    }
+  }
+
+  void _showEmergencyStopDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.red[900],
+          title: Text(
+            '🆘 SOS BEACON ACTIVE',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16.sp,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Emergency signals broadcasting...',
+                style: TextStyle(color: Colors.white, fontSize: 14.sp),
+              ),
+              SizedBox(height: 2.h),
+              StreamBuilder<String>(
+                stream: Stream.periodic(Duration(seconds: 1), (i) => _sosService.status),
+                builder: (context, snapshot) {
+                  return Column(
+                    children: [
+                      Text(
+                        'Status: ${snapshot.data ?? "Broadcasting"}',
+                        style: TextStyle(color: Colors.white70, fontSize: 12.sp),
+                      ),
+                      Text(
+                        'Cycle: ${_sosService.currentCycle}',
+                        style: TextStyle(color: Colors.white70, fontSize: 12.sp),
+                      ),
+                      Text(
+                        'Battery: ${_sosService.batteryLevel}%',
+                        style: TextStyle(color: Colors.white70, fontSize: 12.sp),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _sosService.emergencyStop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[700],
+                foregroundColor: Colors.white,
+                minimumSize: Size(double.infinity, 12.w),
+              ),
+              child: Text(
+                'EMERGENCY STOP',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16.sp,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

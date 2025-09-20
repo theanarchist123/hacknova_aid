@@ -101,53 +101,53 @@ class NativeBluetoothService extends ChangeNotifier {
     }
   }
 
-  /// Discover nearby devices
-  Future<bool> discoverDevices() async {
+  /// Discover nearby Bluetooth devices
+  Future<List<Map<String, String>>> discoverDevices() async {
     try {
       _isDiscovering = true;
-      _status = 'Starting device discovery...';
-      _discoveredDevices.clear();
+      _status = 'Discovering devices...';
       notifyListeners();
 
-      _status = 'Checking Bluetooth permissions...';
-      notifyListeners();
-
-      _status = 'Discovering devices... This may take up to 12 seconds';
-      notifyListeners();
-
-      // Start discovery - this returns the complete list when finished
-      final List<dynamic> devices = await _channel.invokeMethod('startDeviceDiscovery');
+      final List<dynamic> devices = await _channel.invokeMethod('discoverDevices');
       _discoveredDevices = devices.map((device) => Map<String, String>.from(device)).toList();
       
-      print('🔵 Discovery: Found ${_discoveredDevices.length} devices');
+      print('🔍 Bluetooth: Discovered ${_discoveredDevices.length} devices');
       for (var device in _discoveredDevices) {
-        print('🔵 Device: ${device['name']} (${device['address']}) - ${device['type']}');
+        print('🔍 Device: ${device['name']} (${device['address']})');
       }
       
-      _status = 'Found ${_discoveredDevices.length} devices';
       _isDiscovering = false;
+      _status = 'Discovery completed';
       notifyListeners();
       
-      // If no devices found, show helpful message
-      if (_discoveredDevices.isEmpty) {
-        _status = 'No devices found. Make sure other devices are discoverable and Bluetooth is enabled.';
-        notifyListeners();
-      }
-      
-      return true;
+      return _discoveredDevices;
     } catch (e) {
       print('🔴 Discovery Error: $e');
-      _status = 'Discovery failed: $e';
       _isDiscovering = false;
+      _status = 'Discovery failed: $e';
       notifyListeners();
-      return false;
+      return [];
     }
   }
 
-  /// Send file via system Bluetooth sharing
+  /// Cancel device discovery
+  Future<void> cancelDiscovery() async {
+    try {
+      await _channel.invokeMethod('stopDeviceDiscovery');
+      _isDiscovering = false;
+      _status = 'Discovery cancelled';
+      notifyListeners();
+    } catch (e) {
+      print('🔴 Cancel Discovery Error: $e');
+      _status = 'Cancel discovery failed: $e';
+      notifyListeners();
+    }
+  }
+
+  /// Send file via Android Bluetooth system dialog
   Future<bool> sendFileViaBluetoothSystem(String deviceAddress, String message) async {
     try {
-      _status = 'Sending message...';
+      _status = 'Opening Bluetooth transfer...';
       notifyListeners();
 
       final String result = await _channel.invokeMethod('sendFileViaBluetoothSystem', {
@@ -165,7 +165,28 @@ class NativeBluetoothService extends ChangeNotifier {
     }
   }
 
-  /// Send message to multiple devices sequentially
+  /// Send message directly via Bluetooth socket (no user dialog)
+  Future<bool> sendDirectToBluetooth(String deviceAddress, String message) async {
+    try {
+      _status = 'Sending via direct connection...';
+      notifyListeners();
+
+      final String result = await _channel.invokeMethod('sendDirectToBluetooth', {
+        'deviceAddress': deviceAddress,
+        'message': message,
+      });
+      
+      _status = result;
+      notifyListeners();
+      return result.contains('sent directly') || result.contains('Message sent');
+    } catch (e) {
+      _status = 'Direct send failed: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Send message to multiple devices sequentially using direct Bluetooth connection
   Future<Map<String, bool>> sendToMultipleDevices(
     List<Map<String, String>> devices, 
     String message,
@@ -186,10 +207,11 @@ class NativeBluetoothService extends ChangeNotifier {
         notifyListeners();
         
         // Update individual device status
-        onDeviceUpdate?.call(deviceAddress, '📤 Sending...');
+        onDeviceUpdate?.call(deviceAddress, '📤 Connecting...');
         
         try {
-          final success = await sendFileViaBluetoothSystem(deviceAddress, message);
+          // Use direct Bluetooth communication for multi-device sends
+          final success = await sendDirectToBluetooth(deviceAddress, message);
           results[deviceAddress] = success;
           
           if (success) {
@@ -198,9 +220,9 @@ class NativeBluetoothService extends ChangeNotifier {
             onDeviceUpdate?.call(deviceAddress, '❌ Failed to send');
           }
           
-          // Small delay between sends to avoid overwhelming the system
+          // Small delay between sends to avoid overwhelming devices
           if (i < devices.length - 1) {
-            await Future.delayed(const Duration(milliseconds: 1500));
+            await Future.delayed(const Duration(milliseconds: 2000));
           }
           
         } catch (e) {
@@ -250,45 +272,31 @@ class NativeBluetoothService extends ChangeNotifier {
         ];
       }
 
+      // Request permissions
       Map<Permission, PermissionStatus> statuses = await permissionsToRequest.request();
-
-      bool allGranted = true;
-      for (var entry in statuses.entries) {
-        final permission = entry.key;
-        final status = entry.value;
-        
+      
+      // Check if all required permissions are granted
+      bool allPermissionsGranted = true;
+      statuses.forEach((permission, status) {
         if (status != PermissionStatus.granted) {
-          allGranted = false;
+          allPermissionsGranted = false;
+          print('🔴 Permission denied: $permission -> $status');
+        } else {
+          print('✅ Permission granted: $permission');
         }
-      }
+      });
 
-      if (allGranted) {
-        _status = 'All permissions granted';
-        notifyListeners();
-        return true;
+      if (allPermissionsGranted) {
+        _status = 'All Bluetooth permissions granted';
       } else {
-        _status = 'Some permissions were denied';
-        notifyListeners();
-        return false;
+        _status = 'Some Bluetooth permissions denied';
       }
-    } catch (e) {
-      _status = 'Permission error: $e';
       notifyListeners();
-      return false;
-    }
-  }
-
-  /// Stop device discovery
-  Future<bool> stopDiscovery() async {
-    try {
-      await _channel.invokeMethod('stopDeviceDiscovery');
-      _isDiscovering = false;
-      _status = 'Discovery stopped';
-      notifyListeners();
-      return true;
+      
+      return allPermissionsGranted;
     } catch (e) {
-      _status = 'Stop discovery error: $e';
-      _isDiscovering = false;
+      print('🔴 Permission Error: $e');
+      _status = 'Permission check failed: $e';
       notifyListeners();
       return false;
     }
