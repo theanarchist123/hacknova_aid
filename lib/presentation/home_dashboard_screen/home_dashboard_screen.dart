@@ -378,7 +378,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                             crossAxisCount: 2,
                             crossAxisSpacing: 3.w,
                             mainAxisSpacing: 2.h,
-                            childAspectRatio: (constraints.maxWidth / 2 - 1.5.w) / ((constraints.maxWidth / 2 - 1.5.w) * 0.7),
+                            childAspectRatio: 0.85, // Fixed aspect ratio to prevent overflow
                             children: [
                               QuickActionCardWidget(
                                 title: 'Prediction',

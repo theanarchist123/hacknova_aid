@@ -107,7 +107,7 @@ class _QuickActionCardWidgetState extends State<QuickActionCardWidget> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Padding(
+          child: Container(
             padding: EdgeInsets.all(3.w),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -155,33 +155,36 @@ class _QuickActionCardWidgetState extends State<QuickActionCardWidget> {
                         : const SizedBox.shrink(),
                   ],
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title,
-                      style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: widget.cardColor != null
-                            ? Colors.white
-                            : AppTheme.lightTheme.colorScheme.onSurface,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: AppTheme.lightTheme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: widget.cardColor != null
+                              ? Colors.white
+                              : AppTheme.lightTheme.colorScheme.onSurface,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    SizedBox(height: 0.5.h),
-                    Text(
-                      widget.statusText,
-                      style: AppTheme.lightTheme.textTheme.bodySmall?.copyWith(
-                        color: widget.cardColor != null
-                            ? Colors.white.withOpacity(0.8)
-                            : AppTheme.lightTheme.colorScheme.onSurface
-                                .withOpacity(0.7),
+                      SizedBox(height: 0.5.h),
+                      Text(
+                        widget.statusText,
+                        style: AppTheme.lightTheme.textTheme.bodySmall?.copyWith(
+                          color: widget.cardColor != null
+                              ? Colors.white.withOpacity(0.8)
+                              : AppTheme.lightTheme.colorScheme.onSurface
+                                  .withOpacity(0.7),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
